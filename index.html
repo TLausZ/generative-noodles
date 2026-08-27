@@ -665,6 +665,18 @@
 
   // ---- mask image ---------------------------------------------------------
 
+  // Hand painted cells have no image to reread, so inverting swaps the set.
+  function invertBlocked(gw, gh) {
+    var next = new Set();
+    for (var y = 0; y < gh; y++) {
+      for (var x = 0; x < gw; x++) {
+        var key = x + "," + y;
+        if (!blocked.has(key)) next.add(key);
+      }
+    }
+    blocked = next;
+  }
+
   // The image is scaled to fit the grid, any leftover space counts as blocked.
   // Cells over dark pixels are blocked, cells over light ones stay open.
   function applyMask() {
@@ -782,7 +794,11 @@
   });
 
   document.getElementById("maskInvert").addEventListener("change", function () {
-    applyMask();
+    if (maskImg) applyMask();
+    else {
+      var c = read();
+      invertBlocked(c.gw, c.gh);
+    }
     draw(true);
   });
 
@@ -1011,6 +1027,20 @@
     var metric = layout({ pw: 25.4, ph: 20.32, margin: 2.54, gw: 10, gh: 10, thick: .5, pen: .5, unit: "cm" });
     eq(inches.W, metric.W, "same sheet width in either unit");
     eq(inches.s, metric.s, "same cell size in either unit");
+
+    // Inverting hand painted cells swaps blocked and open, twice is a no-op.
+    (function () {
+      var keep = blocked;
+      blocked = new Set(["1,1", "2,1"]);
+      invertBlocked(3, 2);
+      eq(blocked.size, 4, "four of six cells left after inverting two");
+      eq(blocked.has("1,1") ? 1 : 0, 0, "a painted cell is open after inverting");
+      eq(blocked.has("0,0") ? 1 : 0, 1, "an open cell is blocked after inverting");
+      invertBlocked(3, 2);
+      eq(blocked.size, 2, "inverting twice gives the original set");
+      eq(blocked.has("2,1") ? 1 : 0, 1, "and the same cells");
+      blocked = keep;
+    })();
 
     // Blocked cells stay empty.
     var wall = new Set();
