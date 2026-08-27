@@ -34,6 +34,21 @@ reapplied by itself. Painting by hand from then on drops the mask.
 
 Blocked cells and the grid are drawing aids and never end up in the saved SVG.
 
+## Graphics
+
+Ends and straight sections can carry your own SVG shapes. Load them in the Graphics
+row: **Head** is the end cap, **Tail** the other end if it should differ, **Joiner** a
+piece that drops into straight sections. The Joiners slider sets how often that
+happens; with the slider up and no file loaded you get the twist from the original
+sketch.
+
+Draw the graphic on a square viewBox, vertically, with the noodle edges running down
+the left and right sides and the connection along the bottom edge. A joiner connects
+on both the top and the bottom. That is the same convention as the original, so its
+graphics work here unchanged.
+
+Where a graphic sits, the outline is cut open and the shape carries the line across.
+
 ## How it works
 
 Noodles are self-avoiding walks over a grid: pick a free cell, grow into a random free
@@ -43,15 +58,15 @@ numbers come from a seeded generator, which is what makes a drawing reproducible
 The grid keeps every turn at 90 degrees, so the outline needs no offset curve maths.
 A straight cell is two parallel lines, a corner is two concentric quarter arcs whose
 radii are the cell half-width plus or minus half the noodle width, and each end is a
-half-circle cap flush with the outer cell edge. One closed path per noodle.
+half-circle cap flush with the outer cell edge. That makes one closed path per noodle,
+which a graphic then cuts open where it sits.
 
 Open `index.html?test=1` to run the geometry self check; the result lands in the
 page title.
 
 ## Not built yet
 
-Head, tail and joiner graphics, overlapping noodles, and the path edit mode from the
-original.
+Overlapping noodles and the path edit mode from the original.
 
 ## License
 

@@ -162,7 +162,15 @@
   <div class="row"><label>Min length<span class="val" id="v_minLen"></span></label><input type="range" id="minLen" min="2" max="40" step="1" value="4"></div>
   <div class="row"><label>Max length<span class="val" id="v_maxLen"></span></label><input type="range" id="maxLen" min="2" max="40" step="1" value="14"></div>
   <div class="row"><label>Thickness<span class="val" id="v_thick"></span></label><input type="range" id="thick" min=".2" max=".95" step=".01" value=".62"></div>
-  <label class="check"><input type="checkbox" id="curves" checked> Curved corners</label>
+  <h2>Graphics</h2>
+  <div class="buttons">
+    <button class="b" id="btnHead">Head</button>
+    <button class="b" id="btnTail">Tail</button>
+    <button class="b" id="btnJoin">Joiner</button>
+    <button class="b" id="btnGfxReset">Reset</button>
+  </div>
+  <input type="file" id="gfxFile" accept=".svg,image/svg+xml" hidden>
+  <div class="row"><label>Joiners<span class="val" id="v_joiners"></span></label><input type="range" id="joiners" min="0" max="1" step=".05" value="0"></div>
 
   <h2>Mask</h2>
   <div class="buttons">
@@ -178,7 +186,7 @@
   <div id="stats"></div>
 </div>
 
-<div id="hint">R = randomize · G = grid · X = paint cells · I = mask image · S = save SVG</div>
+<div id="hint">R = randomize · G = grid · X = paint cells · I = mask · S = save SVG</div>
 
 <script>
 (function () {
@@ -195,52 +203,91 @@
   function left(d) { return { x: d.y, y: -d.x }; }          // screen-left of d
   function turnOf(a, b) { return a.x * b.y - a.y * b.x; }   // >0 = right turn
 
+  // The built-in joiner, the twist from the original sketch.
+  var TWIST = { vb: [0, 0, 100, 100], inner:
+    '<path d="M50,83.2C54,50,100,50,100,0"/>' +
+    '<path d="M73.8,50.2C86.9,60,100,72.3,100,100"/>' +
+    '<path d="M50.5,16.8C46.5,50,0,50,0,100"/>' +
+    '<path d="M26.6,49.7C13.5,39.9,0,27.7,0,0"/>' };
+
   // One side of the noodle as a chain: a start point plus segments to follow.
-  function sideChain(centers, dirs, sgn, s, w, curves) {
-    var n = left(dirs[0]), half = w / 2;
+  // A segment of type "M" is a jump, which is how end and joiner graphics cut
+  // the outline open.
+  function sideChain(centers, dirs, sgn, s, w, ends, joiners) {
+    var half = w / 2, i;
+    // A graphic occupies a full noodle width, the built-in cap only half of it.
+    var inHead = ends.head ? s / 2 - w : s / 2 - half;
+    var inTail = ends.tail ? s / 2 - w : s / 2 - half;
+    var n0 = left(dirs[0]);
     var start = {
-      x: centers[0].x - dirs[0].x * (s / 2 - half) + n.x * sgn * half,
-      y: centers[0].y - dirs[0].y * (s / 2 - half) + n.y * sgn * half
+      x: centers[0].x - dirs[0].x * inHead + n0.x * sgn * half,
+      y: centers[0].y - dirs[0].y * inHead + n0.y * sgn * half
     };
-    var segs = [], i;
+    var segs = [];
 
     for (i = 0; i < dirs.length; i++) {
-      var d = dirs[i];
-      var nl = left(d);
+      var d = dirs[i], nl = left(d);
       var mid = { x: (centers[i].x + centers[i + 1].x) / 2, y: (centers[i].y + centers[i + 1].y) / 2 };
       var pt = { x: mid.x + nl.x * sgn * half, y: mid.y + nl.y * sgn * half };
+      var t = i > 0 ? turnOf(dirs[i - 1], d) : 0;
 
-      if (i > 0 && curves) {
-        var t = turnOf(dirs[i - 1], d);
-        if (t !== 0) {
-          // Outside of the bend gets the long radius, inside the short one.
-          segs.push({ t: "A", p: pt, r: s / 2 + sgn * t * half, sweep: t > 0 ? 1 : 0 });
-          continue;
-        }
+      if (i > 0 && t === 0 && joiners.has(i)) {
+        segs.push({ t: "L", p: { x: centers[i].x - d.x * half + nl.x * sgn * half,
+                                 y: centers[i].y - d.y * half + nl.y * sgn * half } });
+        segs.push({ t: "M", p: { x: centers[i].x + d.x * half + nl.x * sgn * half,
+                                 y: centers[i].y + d.y * half + nl.y * sgn * half } });
+        segs.push({ t: "L", p: pt });
+      } else if (i > 0 && t !== 0) {
+        // Outside of the bend gets the long radius, inside the short one.
+        segs.push({ t: "A", p: pt, r: s / 2 + sgn * t * half, sweep: t > 0 ? 1 : 0 });
+      } else {
+        segs.push({ t: "L", p: pt });
       }
-      segs.push({ t: "L", p: pt });
     }
 
     var last = centers.length - 1, dl = dirs[dirs.length - 1], nlast = left(dl);
     segs.push({ t: "L", p: {
-      x: centers[last].x + dl.x * (s / 2 - half) + nlast.x * sgn * half,
-      y: centers[last].y + dl.y * (s / 2 - half) + nlast.y * sgn * half
+      x: centers[last].x + dl.x * inTail + nlast.x * sgn * half,
+      y: centers[last].y + dl.y * inTail + nlast.y * sgn * half
     }});
     return { start: start, segs: segs };
   }
 
   function fmt(v) { return Math.round(v * 100) / 100; }
 
-  function chainToPath(start, segs, out) {
-    for (var i = 0; i < segs.length; i++) {
-      var g = segs[i];
-      if (g.t === "A") out.push("A" + fmt(g.r) + " " + fmt(g.r) + " 0 0 " + g.sweep + " " + fmt(g.p.x) + " " + fmt(g.p.y));
-      else out.push("L" + fmt(g.p.x) + " " + fmt(g.p.y));
-    }
+  function cmd(g) {
+    if (g.t === "A") return "A" + fmt(g.r) + " " + fmt(g.r) + " 0 0 " + g.sweep + " " + fmt(g.p.x) + " " + fmt(g.p.y);
+    return (g.t === "M" ? "M" : "L") + fmt(g.p.x) + " " + fmt(g.p.y);
   }
 
-  // Walk the left side forwards, cap, the right side backwards, cap, close.
-  function outline(cells, gw, s, ox, oy, w, curves) {
+  // The ring runs left side forwards, over the tail, right side backwards, over
+  // the head. Without jumps that closes into one path; each jump splits it.
+  function ringToPath(startPt, ring) {
+    var cut = -1, out = [], i;
+    for (i = 0; i < ring.length; i++) if (ring[i].t === "M") { cut = i; break; }
+    if (cut < 0) {
+      out.push("M" + fmt(startPt.x) + " " + fmt(startPt.y));
+      for (i = 0; i < ring.length; i++) out.push(cmd(ring[i]));
+      out.push("Z");
+    } else {
+      for (i = 0; i < ring.length; i++) out.push(cmd(ring[(cut + i) % ring.length]));
+    }
+    return out.join(" ");
+  }
+
+  // Graphics are drawn on a square whose bottom edge (y = vb height) meets the
+  // noodle and whose x axis spans the noodle width, as in the original sketch.
+  function placeGraphic(g, base, out, w, penPx) {
+    var l = left(out), q = { x: -l.x, y: -l.y };
+    var sx = w / g.vb[2], sy = w / g.vb[3];
+    var m = [q.x * sx, q.y * sx, -out.x * sy, -out.y * sy,
+             base.x + out.x * w - q.x * w / 2, base.y + out.y * w - q.y * w / 2];
+    return '<g transform="matrix(' + m.map(fmt).join(" ") + ") translate(" +
+           fmt(-g.vb[0]) + " " + fmt(-g.vb[1]) + ')" fill="none" stroke="#000" stroke-width="' +
+           fmt(penPx / sy) + '">' + g.inner + "</g>";
+  }
+
+  function noodleParts(cells, gw, s, ox, oy, w, gfx, chance, seed, index, penPx) {
     var centers = cells.map(function (c) {
       return { x: ox + (c % gw + .5) * s, y: oy + (Math.floor(c / gw) + .5) * s };
     });
@@ -251,26 +298,50 @@
         y: Math.sign(centers[i + 1].y - centers[i].y)
       });
     }
-    var L = sideChain(centers, dirs, 1, s, w, curves);
-    var R = sideChain(centers, dirs, -1, s, w, curves);
 
-    var d = ["M" + fmt(L.start.x) + " " + fmt(L.start.y)];
-    chainToPath(L.start, L.segs, d);
+    var joiner = gfx.joiner || (chance > 0 ? TWIST : null);
+    var joiners = new Set();
+    if (joiner && chance > 0) {
+      var rnd = rngFrom(seed + 7919 * (index + 1));
+      for (i = 1; i < dirs.length; i++) {
+        if (turnOf(dirs[i - 1], dirs[i]) === 0 && rnd() < chance) joiners.add(i);
+      }
+    }
 
+    var ends = { head: gfx.head || null, tail: gfx.tail || gfx.head || null };
+    var L = sideChain(centers, dirs, 1, s, w, ends, joiners);
+    var R = sideChain(centers, dirs, -1, s, w, ends, joiners);
     var half = w / 2;
-    var endR = R.segs[R.segs.length - 1].p;
-    d.push("A" + fmt(half) + " " + fmt(half) + " 0 0 1 " + fmt(endR.x) + " " + fmt(endR.y));
 
+    var ring = L.segs.slice();
+    ring.push(ends.tail ? { t: "M", p: R.segs[R.segs.length - 1].p }
+                        : { t: "A", r: half, sweep: 1, p: R.segs[R.segs.length - 1].p });
     // Reversed right side: same arcs, opposite sweep, targets shifted by one.
     var pts = [R.start].concat(R.segs.map(function (g) { return g.p; }));
     for (i = R.segs.length - 1; i >= 0; i--) {
-      var g = R.segs[i], target = pts[i];
-      if (g.t === "A") d.push("A" + fmt(g.r) + " " + fmt(g.r) + " 0 0 " + (g.sweep ? 0 : 1) + " " + fmt(target.x) + " " + fmt(target.y));
-      else d.push("L" + fmt(target.x) + " " + fmt(target.y));
+      ring.push({ t: R.segs[i].t, p: pts[i], r: R.segs[i].r, sweep: R.segs[i].sweep ? 0 : 1 });
     }
-    d.push("A" + fmt(half) + " " + fmt(half) + " 0 0 1 " + fmt(L.start.x) + " " + fmt(L.start.y));
-    d.push("Z");
-    return d.join(" ");
+    ring.push(ends.head ? { t: "M", p: L.start }
+                        : { t: "A", r: half, sweep: 1, p: L.start });
+
+    var uses = [], last = centers.length - 1, dl = dirs[dirs.length - 1], d0 = dirs[0];
+    if (ends.head) {
+      uses.push(placeGraphic(ends.head,
+        { x: centers[0].x - d0.x * (s / 2 - w), y: centers[0].y - d0.y * (s / 2 - w) },
+        { x: -d0.x, y: -d0.y }, w, penPx));
+    }
+    if (ends.tail) {
+      uses.push(placeGraphic(ends.tail,
+        { x: centers[last].x + dl.x * (s / 2 - w), y: centers[last].y + dl.y * (s / 2 - w) },
+        dl, w, penPx));
+    }
+    joiners.forEach(function (i) {
+      var d = dirs[i];
+      uses.push(placeGraphic(joiner,
+        { x: centers[i].x - d.x * half, y: centers[i].y - d.y * half }, d, w, penPx));
+    });
+
+    return { d: ringToPath(L.start, ring), uses: uses };
   }
 
   // ---- growing ------------------------------------------------------------
@@ -341,6 +412,7 @@
   var paintMode = false;        // click or drag cells to block them
   var blocked = new Set();      // "x,y" of cells noodles must avoid
   var maskImg = null;
+  var gfx = {};                 // head, tail and joiner graphics, once loaded
 
   function read() {
     var g = function (id) { return document.getElementById(id); };
@@ -351,7 +423,8 @@
       gw: +g("gw").value, gh: +g("gh").value,
       num: +g("num").value,
       minLen: Math.min(minLen, maxLen), maxLen: Math.max(minLen, maxLen),
-      thick: +g("thick").value, curves: g("curves").checked,
+      thick: +g("thick").value,
+      joiners: +g("joiners").value,
       seed: +g("seed").value || 0
     };
   }
@@ -386,9 +459,15 @@
       for (var j = 0; j <= c.gh; j++) gl.push("M" + fmt(ox) + " " + fmt(oy + j * s) + "H" + fmt(ox + c.gw * s));
       parts.push('<path id="grid" d="' + gl.join(" ") + '" stroke="#d9d9d9" stroke-width="1" fill="none"/>');
     }
-    var d = current.map(function (cells) { return outline(cells, c.gw, s, ox, oy, w, c.curves); });
+    var d = [], uses = [];
+    current.forEach(function (cells, i) {
+      var r = noodleParts(cells, c.gw, s, ox, oy, w, gfx, c.joiners, c.seed, i, penPx);
+      d.push(r.d);
+      uses = uses.concat(r.uses);
+    });
     parts.push('<path d="' + d.join(" ") + '" fill="none" stroke="#000" stroke-width="' + fmt(penPx) +
                '" stroke-linecap="round" stroke-linejoin="round"/>');
+    if (uses.length) parts.push('<g id="gfx">' + uses.join("") + "</g>");
 
     svg.setAttribute("viewBox", "0 0 " + fmt(W) + " " + fmt(H));
     svg.setAttribute("width", W);
@@ -503,6 +582,60 @@
     ev.target.value = "";
   });
 
+  // ---- graphics -----------------------------------------------------------
+
+  var pendingSlot = "head";
+
+  // A user picked file is not trusted markup: scripts and event handlers go.
+  function scrub(root) {
+    Array.prototype.forEach.call(root.querySelectorAll("script, style"), function (e) { e.remove(); });
+    Array.prototype.forEach.call(root.querySelectorAll("*"), function (e) {
+      Array.prototype.slice.call(e.attributes).forEach(function (a) {
+        if (/^on/i.test(a.name) || a.name === "class") e.removeAttribute(a.name);
+      });
+    });
+  }
+
+  document.getElementById("gfxFile").addEventListener("change", function (ev) {
+    var file = ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var doc = new DOMParser().parseFromString(reader.result, "image/svg+xml");
+      var root = doc.documentElement;
+      if (root.nodeName !== "svg" || doc.querySelector("parsererror")) {
+        document.getElementById("stats").textContent = "that file is not an SVG";
+        return;
+      }
+      scrub(root);
+      var vbAttr = root.getAttribute("viewBox");
+      var vb = vbAttr ? vbAttr.trim().split(/[\s,]+/).map(Number)
+                      : [0, 0, parseFloat(root.getAttribute("width")) || 100,
+                            parseFloat(root.getAttribute("height")) || 100];
+      var ser = new XMLSerializer(), inner = "";
+      Array.prototype.forEach.call(root.childNodes, function (n) { inner += ser.serializeToString(n); });
+      gfx[pendingSlot] = { vb: vb, inner: inner };
+      if (pendingSlot === "joiner" && +document.getElementById("joiners").value === 0) {
+        document.getElementById("joiners").value = .35;
+        document.getElementById("v_joiners").textContent = ".35";
+      }
+      draw(false);
+    };
+    reader.readAsText(file);
+    ev.target.value = "";
+  });
+
+  ["head", "tail", "join"].forEach(function (which) {
+    document.getElementById("btn" + which[0].toUpperCase() + which.slice(1)).addEventListener("click", function () {
+      pendingSlot = which === "join" ? "joiner" : which;
+      document.getElementById("gfxFile").click();
+    });
+  });
+  document.getElementById("btnGfxReset").addEventListener("click", function () {
+    gfx = {};
+    draw(false);
+  });
+
   // ---- panel --------------------------------------------------------------
 
   var panel = document.getElementById("panel"), toggle = document.getElementById("toggle");
@@ -513,7 +646,7 @@
   toggle.addEventListener("click", function () { setPanel(panel.hasAttribute("hidden")); });
   if (matchMedia("(max-width: 680px), (max-height: 520px)").matches) setPanel(false);
 
-  ["margin", "pen", "gw", "gh", "num", "minLen", "maxLen", "thick"].forEach(function (id) {
+  ["margin", "pen", "gw", "gh", "num", "minLen", "maxLen", "thick", "joiners"].forEach(function (id) {
     var el = document.getElementById(id), out = document.getElementById("v_" + id);
     function show() { out.textContent = el.value; }
     el.addEventListener("input", function () {
@@ -527,7 +660,6 @@
   ["pw", "ph"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", function () { draw(false); });
   });
-  document.getElementById("curves").addEventListener("change", function () { draw(false); });
 
   function reseed() {
     document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
@@ -589,7 +721,7 @@
     // A straight three-cell noodle: cells 0,1,2 of a 3x1 grid, s=100, w=60.
     // Its outline is a 260 x 60 pill whose caps end flush with the outer cell
     // edges at x=0 and x=300.
-    var straight = outline([0, 1, 2], 3, 100, 0, 0, 60, true);
+    var straight = noodleParts([0, 1, 2], 3, 100, 0, 0, 60, {}, 0, 1, 0, 1).d;
     var pts = [];
     straight.replace(/([MLA])([^MLAZ]*)/g, function (_, cmd, rest) {
       var v = rest.trim().split(/[ ,]+/).map(Number);
@@ -616,6 +748,18 @@
        "the seed reproduces a run");
     eq(JSON.stringify(grow(12, 12, 40, 3, 10, 43)) === JSON.stringify(ns) ? 0 : 1, 1,
        "a different seed gives a different run");
+    // A joiner cuts the outline open and places one graphic.
+    var withJoiner = noodleParts([0, 1, 2], 3, 100, 0, 0, 60, {}, 1, 1, 0, 1);
+    eq(withJoiner.uses.length, 1, "one joiner graphic on the middle cell");
+    eq((withJoiner.d.match(/M/g) || []).length, 2, "the outline is cut into two runs");
+    eq(withJoiner.d.indexOf("Z"), -1, "a cut outline is no longer closed");
+
+    // An end graphic replaces the cap and shortens the outline by half a width.
+    var capped = noodleParts([0, 1, 2], 3, 100, 0, 0, 60,
+                             { head: { vb: [0, 0, 100, 100], inner: "<path d=\"M0,100\"/>" } }, 0, 1, 0, 1);
+    eq(capped.uses.length, 2, "head graphic used at both ends");
+    eq(capped.d.indexOf("Z"), -1, "an outline with end graphics is open");
+
     // A click on the middle of cell 3,2 maps back to that cell.
     var c0 = read();
     var W0 = c0.pw * DPI, H0 = c0.ph * DPI, m0 = c0.margin * DPI;
