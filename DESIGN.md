@@ -12,11 +12,11 @@ omitted:
 colors:
   primary: "{colors.ink}"
   paper: "#ece2cd"                      # Arbeitsfläche, Panel, Klappe
-  paper-bright: "#f2ead6"               # Blatt, Eingabefelder, Text auf dunklen Flächen
+  paper-bright: "#f2ead6"               # Eingabefelder, Text auf dunklen Flächen
   ink: "#5c4a34"                        # Titel, Buttontext, Slider-Griff, aktiver Grund
   ink-soft: "#6b5a42"                   # Beschriftungen der Regler
   ink-faint: "#8a7a5e"                  # Untertitel, Sektionen, Werte, Statuszeile, Hinweis
-  line: "rgba(74,58,40,0.68)"           # Noodle-Konturen und Grafiken
+  line: "#000000"                       # Noodle-Konturen und Grafiken, siehe Abweichungen
   border: "rgba(110,92,64,0.25)"        # Trennlinien im Panel, Rasterlinien
   border-strong: "rgba(110,92,64,0.4)"  # Panel-, Klappen-, Button- und Blattrahmen
   bar: "rgba(110,92,64,0.18)"           # Slider-Schiene, blockierte Zellen
@@ -81,12 +81,19 @@ Rahmen in `border-strong` statt eines Schlagschattens.
 
 ## Zeichnung
 
-Noodle-Konturen in `line`, als `stroke` mit `stroke-opacity` statt als
-rgba-Wert, damit Plotter-Software die Farbe lesen kann. Rasterlinien in
-`border`, blockierte Zellen als Fläche in `bar`. Beide sind Zeichenhilfen und
-erscheinen nie im gespeicherten SVG.
+Die Zeichnung selbst steht ausserhalb der Palette: schwarze Konturen auf weissem
+Blatt, volle Deckkraft. Sie ist das Werkstück, nicht Teil des Interface, und muss
+auf jedem Papier und in jeder Plotter-Software eindeutig sein. Das gespeicherte
+SVG hat keinen Hintergrund, die Linien liegen schwarz auf transparent.
+
+Rasterlinien in `border`, blockierte Zellen als Fläche in `bar`. Beide sind
+Zeichenhilfen und erscheinen nie im gespeicherten SVG.
 
 ## Abweichungen von der Quelle
 
 Die Interface-Sprache ist hier Englisch, nicht Deutsch: das Repository ist
-öffentlich und englisch dokumentiert. Alles Übrige folgt der Quelle.
+öffentlich und englisch dokumentiert.
+
+Die Regel «kein reines Schwarz, kein reines Weiss» gilt nur für das Interface.
+Blatt und Zeichnung sind weiss und schwarz, weil sie das Ergebnis sind und nicht
+die Umgebung. Alles Übrige folgt der Quelle.

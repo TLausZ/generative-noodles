@@ -35,7 +35,7 @@
   #art {
     /* aspect-ratio plus both max sizes lets the sheet shrink to fit either way */
     width: auto; height: auto; max-width: 100%; max-height: 100%;
-    background: var(--paper-bright); border: 1px solid var(--border-strong);
+    background: #fff; border: 1px solid var(--border-strong);
   }
 
   /* Panel und Klappe hängen zusammen: die Klappe wandert mit dem Panelrand. */
@@ -317,7 +317,7 @@
              base.x + out.x * w - q.x * w / 2, base.y + out.y * w - q.y * w / 2];
     return '<g transform="matrix(' + m.map(fmt).join(" ") + ") translate(" +
            fmt(-g.vb[0]) + " " + fmt(-g.vb[1]) +
-           ')" fill="none" stroke="#4a3a28" stroke-opacity=".68" stroke-width="' +
+           ')" fill="none" stroke="#000" stroke-width="' +
            fmt(penPx / sy) + '">' + g.inner + "</g>";
   }
 
@@ -577,7 +577,7 @@
       d.push(r.d);
       uses = uses.concat(r.uses);
     });
-    parts.push('<path d="' + d.join(" ") + '" fill="none" stroke="#4a3a28" stroke-opacity=".68" stroke-width="' +
+    parts.push('<path d="' + d.join(" ") + '" fill="none" stroke="#000" stroke-width="' +
                fmt(penPx) + '" stroke-linecap="round" stroke-linejoin="round"/>');
     if (uses.length) parts.push('<g id="gfx">' + uses.join("") + "</g>");
 
