@@ -162,11 +162,6 @@
     <button class="b" id="btnSave">Save SVG</button>
   </div>
 
-  <h2>Paper <button class="unit" id="btnUnit">cm</button></h2>
-  <div class="pair">
-    <div class="row"><label>Width<span class="val"></span></label><input type="number" id="pw" value="29.7" min="1" max="200" step=".1"></div>
-    <div class="row"><label>Height<span class="val"></span></label><input type="number" id="ph" value="21" min="1" max="200" step=".1"></div>
-  </div>
 
   <h2>Grid</h2>
   <div class="row"><label>Columns<span class="val" id="v_gw"></span></label><input type="range" id="gw" min="2" max="48" step="1" value="21"></div>
@@ -208,6 +203,11 @@
     <button class="b" id="btnClear">Clear</button>
   </div>
   <input type="file" id="maskFile" accept="image/*" hidden>
+  <h2>Paper <button class="unit" id="btnUnit">cm</button></h2>
+  <div class="pair">
+    <div class="row"><label>Width<span class="val"></span></label><input type="number" id="pw" value="29.7" min="1" max="200" step=".1"></div>
+    <div class="row"><label>Height<span class="val"></span></label><input type="number" id="ph" value="21" min="1" max="200" step=".1"></div>
+  </div>
   <div id="stats"></div>
 
 </div>
