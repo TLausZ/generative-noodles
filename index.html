@@ -203,6 +203,7 @@
     <button class="b" id="btnClear">Clear</button>
   </div>
   <input type="file" id="maskFile" accept="image/*" hidden>
+  <label class="check"><input type="checkbox" id="maskInvert"> Invert mask</label>
   <h2>Paper <button class="unit" id="btnUnit">cm</button></h2>
   <div class="pair">
     <div class="row"><label>Width<span class="val"></span></label><input type="number" id="pw" value="29.7" min="1" max="200" step=".1"></div>
@@ -655,10 +656,12 @@
   function applyMask() {
     if (!maskImg) return;
     var c = read();
+    var invert = document.getElementById("maskInvert").checked;
     var cv = document.createElement("canvas");
     cv.width = c.gw; cv.height = c.gh;
     var ctx = cv.getContext("2d");
-    ctx.fillStyle = "#000";
+    // Space left over by a mismatched aspect ratio counts as blocked either way.
+    ctx.fillStyle = invert ? "#fff" : "#000";
     ctx.fillRect(0, 0, c.gw, c.gh);
     var sc = Math.min(c.gw / maskImg.width, c.gh / maskImg.height);
     var w = maskImg.width * sc, h = maskImg.height * sc;
@@ -668,7 +671,8 @@
     for (var y = 0; y < c.gh; y++) {
       for (var x = 0; x < c.gw; x++) {
         var i = (y * c.gw + x) * 4;
-        if (d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114 < 128) blocked.add(x + "," + y);
+        var dark = d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114 < 128;
+        if (dark !== invert) blocked.add(x + "," + y);
       }
     }
   }
@@ -757,6 +761,11 @@
     unit = to;
     this.textContent = to;
     draw(false);
+  });
+
+  document.getElementById("maskInvert").addEventListener("change", function () {
+    applyMask();
+    draw(true);
   });
 
   document.getElementById("btnGfxReset").addEventListener("click", function () {

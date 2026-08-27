@@ -39,9 +39,10 @@ paint them with the mouse; drag to paint a run of cells, drag again over a block
 cell to clear it. The layout regrows from the same seed when you let go.
 
 A mask image does the same thing from a picture: **`I`** loads one, scales it to fit
-the grid, and blocks every cell sitting over a dark pixel. Space left over by a
-mismatched aspect ratio counts as blocked. Change the grid size and the mask is
-reapplied by itself. Painting by hand from then on drops the mask.
+the grid, and blocks every cell sitting over a dark pixel. **Invert mask** turns that
+around, so the noodles grow inside the dark shape instead of around it. Space left
+over by a mismatched aspect ratio counts as blocked either way. Change the grid size
+and the mask is reapplied by itself. Painting by hand from then on drops the mask.
 
 Blocked cells and the grid are drawing aids and never end up in the saved SVG.
 
