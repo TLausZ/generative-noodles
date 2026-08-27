@@ -44,9 +44,6 @@ shapes to single lines: a traced outline gives every stroke two edges, which a p
 then draws twice. Colour and stroke width in the file are dropped in favour of the pen
 size from the panel.
 
-Six SVGs sit next to `index.html` to start from: `roundEnd`, `twist` and `twistFill`,
-plus `fingerHead`, `fingerTail` and `fingerJoiner` measured off the original diagram.
-
 ## How it works
 
 Noodles are self-avoiding walks over a grid, from a seeded generator so a drawing can
