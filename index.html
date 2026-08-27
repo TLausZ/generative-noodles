@@ -109,16 +109,12 @@
     color: var(--ink); background: var(--paper-bright);
     border: 1px solid var(--border-strong); border-radius: 4px;
   }
-  .previews {
-    display: flex; gap: var(--control); align-items: flex-end;
-    margin: 0 0 var(--panel-pad);
+  .diagram { margin: 0 0 var(--panel-pad); }
+  .diagram img { display: block; width: 100%; height: auto; border: 1px solid var(--border); }
+  .diagram a { display: block; }
+  .diagram figcaption {
+    margin-top: 5px; font-size: 11px; line-height: 1.4; color: var(--ink-faint);
   }
-  .preview { flex: 1; text-align: center; font-size: 11px; color: var(--ink-faint); }
-  .preview > div {
-    background: #fff; border: 1px solid var(--border); margin-bottom: 3px;
-    color: var(--ink);
-  }
-  .preview svg { display: block; width: 100%; height: auto; }
 
   .pair { display: flex; gap: var(--control); }
   .pair .row { flex: 1; }
@@ -204,11 +200,10 @@
     <button class="b" id="btnGfxReset">Reset</button>
   </div>
   <input type="file" id="gfxFile" accept=".svg,image/svg+xml" hidden>
-  <div class="previews">
-    <div class="preview"><div id="pvHead"></div>head</div>
-    <div class="preview"><div id="pvTail"></div>tail</div>
-    <div class="preview"><div id="pvJoiner"></div>joiner</div>
-  </div>
+  <figure class="diagram">
+    <a href="svgDiagram.png" target="_blank" rel="noopener"><img src="svgDiagram.png" alt="Head, tail and joiner drawn on a 100 by 100 box, with the noodle edges meeting the bottom"></a>
+    <figcaption>Draw on a 100 by 100 box. The noodle edges run down the sides, the connection is the bottom edge; a joiner connects on both.</figcaption>
+  </figure>
   <div class="row"><label>Joiners<span class="val" id="v_joiners"></span></label><input type="range" id="joiners" min="0" max="1" step=".05" value="0"></div>
   <label class="check"><input type="checkbox" id="overlaps" checked> Let noodles cross</label>
 
@@ -731,39 +726,6 @@
     });
   }
 
-  // The preview shows the shape together with the noodle edges it has to meet:
-  // dashed stubs leaving the square where the outline continues.
-  function previewMarkup(g, bothEnds) {
-    var x = g.vb[0], y = g.vb[1], w = g.vb[2], h = g.vb[3];
-    var pad = h * .3, sw = w / 45;
-    var stub = "M" + x + "," + (y + h) + "v" + pad + "M" + (x + w) + "," + (y + h) + "v" + pad;
-    if (bothEnds) stub += "M" + x + "," + y + "v" + -pad + "M" + (x + w) + "," + y + "v" + -pad;
-    // Same box for all three, so the tiles line up whether or not the shape
-    // connects on both edges.
-    return '<svg viewBox="' + [x, y - pad, w, h + 2 * pad].join(" ") + '" xmlns="http://www.w3.org/2000/svg">' +
-           '<path d="' + stub + '" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="' +
-           sw + '" stroke-dasharray="' + sw * 2 + " " + sw * 2 + '"/>' +
-           '<g fill="none" stroke="currentColor" stroke-width="' + sw + '">' + g.inner + "</g></svg>";
-  }
-
-  function showPreview(id, g, bothEnds) {
-    var host = document.getElementById(id);
-    host.innerHTML = previewMarkup(g, bothEnds);
-    // A shape may reach past its box, so fit the tile to what is actually
-    // drawn instead of to the nominal 100 x 100.
-    var svg = host.firstChild, box;
-    try { box = svg.getBBox(); } catch (e) { return; }
-    if (!box || !box.width) return;
-    var m = g.vb[2] * .05;
-    svg.setAttribute("viewBox", [box.x - m, box.y - m, box.width + 2 * m, box.height + 2 * m].join(" "));
-  }
-
-  function drawPreviews() {
-    showPreview("pvHead", gfx.head || CAP, false);
-    showPreview("pvTail", gfx.tail || gfx.head || CAP, false);
-    showPreview("pvJoiner", gfx.joiner || TWIST, true);
-  }
-
   document.getElementById("gfxFile").addEventListener("change", function (ev) {
     var file = ev.target.files[0];
     if (!file) return;
@@ -784,7 +746,6 @@
       var ser = new XMLSerializer(), inner = "";
       Array.prototype.forEach.call(root.childNodes, function (n) { inner += ser.serializeToString(n); });
       gfx[slot] = { vb: vb, inner: inner };
-      drawPreviews();
       if (slot === "joiner" && +document.getElementById("joiners").value === 0) {
         document.getElementById("joiners").value = .35;
         document.getElementById("v_joiners").textContent = ".35";
@@ -827,7 +788,6 @@
 
   document.getElementById("btnGfxReset").addEventListener("click", function () {
     gfx = {};
-    drawPreviews();
     draw(false);
   });
 
@@ -934,7 +894,6 @@
   });
 
   document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
-  drawPreviews();
   draw(true);
 
   // ---- self check: index.html?test=1 --------------------------------------

@@ -72,9 +72,8 @@ on both the top and the bottom. That is the same convention as the original, so 
 graphics work here unchanged. Colour, stroke width and fill in the file are dropped;
 the pen size from the panel applies instead.
 
-The three tiles under the buttons show what is in use, with dashed stubs marking
-where the noodle edges continue, so you can see at a glance whether a shape lines up.
-When nothing is loaded they show the built-in round cap and twist.
+The diagram under the buttons is the one from the original repo and shows the
+convention; click it to see it full size.
 
 Six SVGs sit next to `index.html` as a starting point. `roundEnd.svg`, `twist.svg` and
 `twistFill.svg` are the plain set, rebuilt from the original sketch. `fingerHead.svg`,
