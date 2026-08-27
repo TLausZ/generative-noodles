@@ -109,6 +109,17 @@
     color: var(--ink); background: var(--paper-bright);
     border: 1px solid var(--border-strong); border-radius: 4px;
   }
+  .previews {
+    display: flex; gap: var(--control);
+    margin: 0 0 var(--panel-pad);
+  }
+  .preview { flex: 1; text-align: center; font-size: 11px; color: var(--ink-faint); }
+  .preview > div {
+    background: #fff; border: 1px solid var(--border); margin-bottom: 3px;
+    color: var(--ink);
+  }
+  .preview svg { display: block; width: 100%; height: auto; }
+
   .pair { display: flex; gap: var(--control); }
   .pair .row { flex: 1; }
 
@@ -193,6 +204,11 @@
     <button class="b" id="btnGfxReset">Reset</button>
   </div>
   <input type="file" id="gfxFile" accept=".svg,image/svg+xml" hidden>
+  <div class="previews">
+    <div class="preview"><div id="pvHead"></div>head</div>
+    <div class="preview"><div id="pvTail"></div>tail</div>
+    <div class="preview"><div id="pvJoiner"></div>joiner</div>
+  </div>
   <div class="row"><label>Joiners<span class="val" id="v_joiners"></span></label><input type="range" id="joiners" min="0" max="1" step=".05" value="0"></div>
   <label class="check"><input type="checkbox" id="overlaps" checked> Let noodles cross</label>
 
@@ -235,6 +251,9 @@
 
   function left(d) { return { x: d.y, y: -d.x }; }          // screen-left of d
   function turnOf(a, b) { return a.x * b.y - a.y * b.x; }   // >0 = right turn
+
+  // What the drawing uses when nothing is loaded: a round cap on the ends.
+  var CAP = { vb: [0, 0, 100, 100], inner: '<path d="M0,100V50A50,50 0 0 1 100,50V100"/>' };
 
   // The built-in joiner, the twist from the original sketch.
   var TWIST = { vb: [0, 0, 100, 100], inner:
@@ -700,13 +719,37 @@
   var pendingSlot = "head";
 
   // A user picked file is not trusted markup: scripts and event handlers go.
+  // Paint attributes go too, so pen size and colour come from the app and not
+  // from whatever the file happened to carry.
+  var DROP = /^(on|class$|style$|stroke|fill)/i;
   function scrub(root) {
     Array.prototype.forEach.call(root.querySelectorAll("script, style"), function (e) { e.remove(); });
     Array.prototype.forEach.call(root.querySelectorAll("*"), function (e) {
       Array.prototype.slice.call(e.attributes).forEach(function (a) {
-        if (/^on/i.test(a.name) || a.name === "class") e.removeAttribute(a.name);
+        if (DROP.test(a.name)) e.removeAttribute(a.name);
       });
     });
+  }
+
+  // The preview shows the shape together with the noodle edges it has to meet:
+  // dashed stubs leaving the square where the outline continues.
+  function previewMarkup(g, bothEnds) {
+    var x = g.vb[0], y = g.vb[1], w = g.vb[2], h = g.vb[3];
+    var pad = h * .3, sw = w / 45;
+    var stub = "M" + x + "," + (y + h) + "v" + pad + "M" + (x + w) + "," + (y + h) + "v" + pad;
+    if (bothEnds) stub += "M" + x + "," + y + "v" + -pad + "M" + (x + w) + "," + y + "v" + -pad;
+    // Same box for all three, so the tiles line up whether or not the shape
+    // connects on both edges.
+    return '<svg viewBox="' + [x, y - pad, w, h + 2 * pad].join(" ") + '" xmlns="http://www.w3.org/2000/svg">' +
+           '<path d="' + stub + '" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="' +
+           sw + '" stroke-dasharray="' + sw * 2 + " " + sw * 2 + '"/>' +
+           '<g fill="none" stroke="currentColor" stroke-width="' + sw + '">' + g.inner + "</g></svg>";
+  }
+
+  function drawPreviews() {
+    document.getElementById("pvHead").innerHTML = previewMarkup(gfx.head || CAP, false);
+    document.getElementById("pvTail").innerHTML = previewMarkup(gfx.tail || gfx.head || CAP, false);
+    document.getElementById("pvJoiner").innerHTML = previewMarkup(gfx.joiner || TWIST, true);
   }
 
   document.getElementById("gfxFile").addEventListener("change", function (ev) {
@@ -728,6 +771,7 @@
       var ser = new XMLSerializer(), inner = "";
       Array.prototype.forEach.call(root.childNodes, function (n) { inner += ser.serializeToString(n); });
       gfx[pendingSlot] = { vb: vb, inner: inner };
+      drawPreviews();
       if (pendingSlot === "joiner" && +document.getElementById("joiners").value === 0) {
         document.getElementById("joiners").value = .35;
         document.getElementById("v_joiners").textContent = ".35";
@@ -770,6 +814,7 @@
 
   document.getElementById("btnGfxReset").addEventListener("click", function () {
     gfx = {};
+    drawPreviews();
     draw(false);
   });
 
@@ -876,6 +921,7 @@
   });
 
   document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
+  drawPreviews();
   draw(true);
 
   // ---- self check: index.html?test=1 --------------------------------------

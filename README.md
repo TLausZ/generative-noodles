@@ -69,7 +69,15 @@ sketch.
 Draw the graphic on a square viewBox, vertically, with the noodle edges running down
 the left and right sides and the connection along the bottom edge. A joiner connects
 on both the top and the bottom. That is the same convention as the original, so its
-graphics work here unchanged.
+graphics work here unchanged. Colour, stroke width and fill in the file are dropped;
+the pen size from the panel applies instead.
+
+The three tiles under the buttons show what is in use, with dashed stubs marking
+where the noodle edges continue, so you can see at a glance whether a shape lines up.
+When nothing is loaded they show the built-in round cap and twist.
+
+`roundEnd.svg`, `twist.svg` and `twistFill.svg` sit next to `index.html` as a starting
+point, rebuilt from the ones in the original sketch.
 
 Where a graphic sits, the outline is cut open and the shape carries the line across.
 

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Same twist as one closed outline instead of four open strands. -->
+  <path d="M0,0 C0,27.7 13.5,39.9 26.6,49.7 13.4,60.7 0,73.1 0,100 H100 C100,72.3 86.9,60 73.8,50.2 86.7,39.3 100,26.8 100,0 Z"
+        fill="none" stroke="#000" stroke-width="1"/>
+</svg>
