@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!-- A knuckle collar across a straight section. The noodle passes through,
-       so its edges are part of the graphic; connects top and bottom. -->
-  <path d="M0,0 V21 M0,83 V100 M100,0 V21 M100,83 V100" fill="none" stroke="#000" stroke-width="1"/>
-  <ellipse cx="50" cy="16" rx="50" ry="12" fill="none" stroke="#000" stroke-width="1"/>
-  <path d="M31,20 C31,11 72,11 72,20" fill="none" stroke="#000" stroke-width="1"/>
-  <path d="M31,20 V72 M72,20 V72" fill="none" stroke="#000" stroke-width="1"/>
-  <path d="M0,83 C22,71 78,71 100,83" fill="none" stroke="#000" stroke-width="1"/>
-</svg>
