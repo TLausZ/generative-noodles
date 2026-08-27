@@ -69,11 +69,12 @@ Schatten, keine Verläufe, keine Übergänge.
 
 ## Layout
 
-Panel 276px breit, links oben, mit angesetzter Klappe von 18 x 34px an seiner
-rechten Kante. Zugeklappt bleibt nur die Klappe stehen; sie rückt an den
-Fensterrand und schliesst ihren Rahmen. Auf schmalen Fenstern (unter 680px
-Breite oder 520px Höhe) sitzt beides unten links und das Panel füllt die
-Fensterbreite.
+Zwei Panels von je 276px Breite, oben links die Regler, oben rechts Grafiken und
+Maske. Jedes hat eine angesetzte Klappe von 18 x 34px an seiner inneren Kante,
+das rechte spiegelbildlich zum linken. Zugeklappt bleibt nur die Klappe stehen;
+sie rückt an den Fensterrand und schliesst ihren Rahmen. Auf schmalen Fenstern
+(unter 680px Breite oder 520px Höhe) sitzen beide unten, füllen die Fensterbreite
+und starten zugeklappt; das Öffnen des einen schliesst das andere.
 
 Das Blatt liegt zentriert in der Arbeitsfläche, in `paper-bright` mit einem
 Rahmen in `border-strong` statt eines Schlagschattens.

@@ -39,35 +39,41 @@
   }
 
   /* Panel und Klappe hängen zusammen: die Klappe wandert mit dem Panelrand. */
-  #ui {
+  #ui, #ui2 {
     position: fixed; z-index: 11;
-    top: calc(var(--page) + var(--safe-t)); left: var(--page);
+    top: calc(var(--page) + var(--safe-t));
     display: flex; align-items: flex-start;
   }
+  #ui { left: var(--page); }
+  #ui2 { right: var(--page); }
 
-  #panel {
+  .panel {
     width: 276px; max-width: calc(100vw - 2 * var(--page) - 18px);
     max-height: calc(100vh - 2 * var(--page) - var(--safe-t) - var(--safe-b));
     overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding: var(--panel-pad);
     background: var(--paper);
     border: 1px solid var(--border-strong);
-    border-radius: 4px 0 0 4px;
   }
-  #panel[hidden] { display: none; }
+  #panel { border-radius: 4px 0 0 4px; }
+  #panel2 { border-radius: 0 4px 4px 0; }
+  .panel[hidden] { display: none; }
 
-  #toggle {
+  .flap {
     flex: none; width: 18px; height: 34px; padding: 0;
     font: inherit; font-size: 12px; line-height: 1;
     color: var(--ink); background: var(--paper);
-    border: 1px solid var(--border-strong); border-left: none;
-    border-radius: 0 4px 4px 0; cursor: pointer;
+    border: 1px solid var(--border-strong);
+    cursor: pointer;
   }
-  #panel[hidden] + #toggle { border-left: 1px solid var(--border-strong); border-radius: 4px; }
+  #toggle { border-left: none; border-radius: 0 4px 4px 0; }
+  #toggle2 { border-right: none; border-radius: 4px 0 0 4px; }
+  #ui[data-open=false] #toggle { border-left: 1px solid var(--border-strong); border-radius: 4px; }
+  #ui2[data-open=false] #toggle2 { border-right: 1px solid var(--border-strong); border-radius: 4px; }
 
-  #panel h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; color: var(--ink); }
-  #panel .sub { margin: 0 0 var(--panel-pad); font-size: 12px; color: var(--ink-faint); }
-  #panel h2 {
+  .panel h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .panel .sub { margin: 0 0 var(--panel-pad); font-size: 12px; color: var(--ink-faint); }
+  .panel h2 {
     margin: var(--panel-pad) 0 var(--control);
     font-size: 12px; font-weight: 400; color: var(--ink-faint);
     border-top: 1px solid var(--border); padding-top: var(--control);
@@ -135,8 +141,8 @@
 
   @media (max-width: 680px), (max-height: 520px) {
     #stage { padding: 14px; }
-    #ui { top: auto; bottom: calc(var(--page) + var(--safe-b)); align-items: flex-end; }
-    #panel { width: calc(100vw - 2 * var(--page) - 18px); max-height: 62vh; }
+    #ui, #ui2 { top: auto; bottom: calc(var(--page) + var(--safe-b)); align-items: flex-end; }
+    .panel { width: calc(100vw - 2 * var(--page) - 18px); max-height: 62vh; }
     #hint { display: none; }
   }
 </style>
@@ -145,8 +151,8 @@
 
 <div id="stage"><svg id="art" xmlns="http://www.w3.org/2000/svg"></svg></div>
 
-<div id="ui">
-<div id="panel">
+<div id="ui" data-open="true">
+<div id="panel" class="panel">
   <h1>Noodles</h1>
   <p class="sub">Bendy segments grown into a grid. The SVG is ready for a pen plotter.</p>
 
@@ -174,7 +180,19 @@
   <div class="row"><label>Margin<span class="val" id="v_margin"></span></label><input type="range" id="margin" min="0" max="5" step=".1" value="1.5"></div>
   <div class="row"><label>Pen size<span class="val" id="v_pen"></span></label><input type="range" id="pen" min=".1" max="2" step=".05" value=".5"></div>
   <label class="check"><input type="checkbox" id="overlaps" checked> Let noodles cross</label>
-  <h2>Graphics</h2>
+  <h2>Seed</h2>
+  <div class="row"><input type="number" id="seed" value="1" min="0" step="1"></div>
+
+  <div id="stats"></div>
+</div>
+<button id="toggle" class="flap" aria-label="Panel ein- und ausklappen">‹</button>
+</div>
+
+<div id="ui2" data-open="true">
+<button id="toggle2" class="flap" aria-label="Zweites Panel ein- und ausklappen">›</button>
+<div id="panel2" class="panel">
+  <h1>Graphics</h1>
+  <p class="sub">Own SVG shapes for the ends and for straight sections, and a black and white image that blocks cells.</p>
   <div class="buttons">
     <button class="b" id="btnHead">Head</button>
     <button class="b" id="btnTail">Tail</button>
@@ -192,15 +210,10 @@
   </div>
   <input type="file" id="maskFile" accept="image/*" hidden>
 
-  <h2>Seed</h2>
-  <div class="row"><input type="number" id="seed" value="1" min="0" step="1"></div>
-
-  <div id="stats"></div>
 </div>
-<button id="toggle" aria-label="Panel ein- und ausklappen">‹</button>
 </div>
 
-<div id="hint"><b>R</b> randomize · <b>G</b> grid · <b>X</b> paint cells · <b>I</b> mask · <b>S</b> save SVG</div>
+<div id="hint"><b>R</b> randomize · <b>G</b> grid · <b>X</b> paint cells · <b>I</b> mask · <b>S</b> save SVG · <b>H</b> <b>E</b> panels</div>
 
 <script>
 (function () {
@@ -753,13 +766,35 @@
 
   // ---- panel --------------------------------------------------------------
 
-  var panel = document.getElementById("panel"), toggle = document.getElementById("toggle");
-  function setPanel(open) {
-    if (open) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", "");
-    toggle.textContent = open ? "\u2039" : "\u203a";
+  function narrow() { return matchMedia("(max-width: 680px), (max-height: 520px)").matches; }
+
+  // Both panels work the same way, only mirrored. On a narrow screen they
+  // would sit on top of each other, so opening one closes the other.
+  var panels = [];
+  function panelPair(wrapId, panelId, toggleId, openGlyph, closedGlyph) {
+    var wrap = document.getElementById(wrapId);
+    var panel = document.getElementById(panelId);
+    var toggle = document.getElementById(toggleId);
+    var api = {
+      isOpen: function () { return !panel.hasAttribute("hidden"); },
+      set: function (open) {
+        if (open) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", "");
+        wrap.setAttribute("data-open", open ? "true" : "false");
+        toggle.textContent = open ? openGlyph : closedGlyph;
+        if (open && narrow()) {
+          panels.forEach(function (p) { if (p !== api) p.set(false); });
+        }
+      }
+    };
+    toggle.addEventListener("click", function () { api.set(!api.isOpen()); });
+    panels.push(api);
+    return api;
   }
-  toggle.addEventListener("click", function () { setPanel(panel.hasAttribute("hidden")); });
-  if (matchMedia("(max-width: 680px), (max-height: 520px)").matches) setPanel(false);
+
+  var leftPanel = panelPair("ui", "panel", "toggle", "\u2039", "\u203a");
+  var rightPanel = panelPair("ui2", "panel2", "toggle2", "\u203a", "\u2039");
+  function setPanel(open) { leftPanel.set(open); }
+  if (narrow()) { leftPanel.set(false); rightPanel.set(false); }
 
   ["margin", "pen", "gw", "gh", "num", "minLen", "maxLen", "thick", "joiners"].forEach(function (id) {
     var el = document.getElementById(id), out = document.getElementById("v_" + id);
@@ -783,6 +818,7 @@
   document.getElementById("seed").addEventListener("input", function () { draw(true); });
   document.getElementById("overlaps").addEventListener("change", function () { draw(true); });
   document.getElementById("btnRandom").addEventListener("click", reseed);
+
   document.getElementById("btnGrid").addEventListener("click", function () {
     showGrid = !showGrid;
     this.setAttribute("aria-pressed", showGrid ? "true" : "false");
@@ -824,7 +860,8 @@
     if (k === "r") reseed();
     else if (k === "g") { showGrid = !showGrid; draw(false); }
     else if (k === "s") { e.preventDefault(); save(); }
-    else if (k === "h") setPanel(panel.hasAttribute("hidden"));
+    else if (k === "h") leftPanel.set(!leftPanel.isOpen());
+    else if (k === "e") rightPanel.set(!rightPanel.isOpen());
     else if (k === "x") setPaint(!paintMode);
     else if (k === "i") document.getElementById("maskFile").click();
   });

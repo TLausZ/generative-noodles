@@ -18,8 +18,11 @@ tokens live in [DESIGN.md](DESIGN.md) and come from the Bitcoin Wiki Visualizer.
 
 Open `index.html` in a browser, or use the hosted version.
 
+Sliders sit in the left panel, graphics and the mask in the right one. Both fold
+away at the small flap on their inner edge.
+
 **`R`** randomize · **`G`** toggle the grid · **`X`** paint blocked cells ·
-**`I`** load a mask image · **`S`** save an SVG · **`H`** toggle the panel
+**`I`** load a mask image · **`S`** save an SVG · **`H`** and **`E`** fold the panels
 
 Every drawing comes from a seed. Type a seed back into the panel and the same noodles
 return, so a plot you liked is never lost.
