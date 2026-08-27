@@ -13,12 +13,26 @@ without Processing. All credit for the concept goes there.
 
 Open `index.html` in a browser, or use the hosted version.
 
-**`R`** randomize · **`G`** toggle the grid · **`S`** save an SVG · **`H`** toggle the panel
+**`R`** randomize · **`G`** toggle the grid · **`X`** paint blocked cells ·
+**`I`** load a mask image · **`S`** save an SVG · **`H`** toggle the panel
 
 Every drawing comes from a seed. Type a seed back into the panel and the same noodles
 return, so a plot you liked is never lost. The saved SVG carries its real paper size in
 inches, so a plotter or a print dialog picks up the right dimensions without scaling,
 and all settings ride along in a comment at the top of the file.
+
+## Blocking cells
+
+Noodles avoid blocked cells, which is how you shape the drawing. Press **`X`** and
+paint them with the mouse; drag to paint a run of cells, drag again over a blocked
+cell to clear it. The layout regrows from the same seed when you let go.
+
+A mask image does the same thing from a picture: **`I`** loads one, scales it to fit
+the grid, and blocks every cell sitting over a dark pixel. Space left over by a
+mismatched aspect ratio counts as blocked. Change the grid size and the mask is
+reapplied by itself. Painting by hand from then on drops the mask.
+
+Blocked cells and the grid are drawing aids and never end up in the saved SVG.
 
 ## How it works
 
@@ -36,8 +50,8 @@ page title.
 
 ## Not built yet
 
-Blackout cells, mask images, joiner and twist graphics, config load and save, and the
-path edit mode from the original.
+Head, tail and joiner graphics, overlapping noodles, and the path edit mode from the
+original.
 
 ## License
 

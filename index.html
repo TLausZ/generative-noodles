@@ -164,13 +164,21 @@
   <div class="row"><label>Thickness<span class="val" id="v_thick"></span></label><input type="range" id="thick" min=".2" max=".95" step=".01" value=".62"></div>
   <label class="check"><input type="checkbox" id="curves" checked> Curved corners</label>
 
+  <h2>Mask</h2>
+  <div class="buttons">
+    <button class="b" id="btnPaint">Paint cells</button>
+    <button class="b" id="btnMask">Load image</button>
+    <button class="b" id="btnClear">Clear</button>
+  </div>
+  <input type="file" id="maskFile" accept="image/*" hidden>
+
   <h2>Seed</h2>
   <div class="row"><input type="number" id="seed" value="1" min="0" step="1"></div>
 
   <div id="stats"></div>
 </div>
 
-<div id="hint">R = randomize · G = grid · S = save SVG · H = panel</div>
+<div id="hint">R = randomize · G = grid · X = paint cells · I = mask image · S = save SVG</div>
 
 <script>
 (function () {
@@ -278,10 +286,14 @@
     };
   }
 
-  function grow(gw, gh, num, minLen, maxLen, seed) {
+  function grow(gw, gh, num, minLen, maxLen, seed, blocked) {
     var rnd = rngFrom(seed);
     var occ = new Uint8Array(gw * gh), order = [], i;
     for (i = 0; i < gw * gh; i++) order.push(i);
+    if (blocked) blocked.forEach(function (key) {
+      var xy = key.split(","), x = +xy[0], y = +xy[1];
+      if (x < gw && y < gh) occ[y * gw + x] = 1;
+    });
     for (i = order.length - 1; i > 0; i--) {
       var j = Math.floor(rnd() * (i + 1)), t = order[i];
       order[i] = order[j]; order[j] = t;
@@ -326,6 +338,9 @@
   // ---- drawing ------------------------------------------------------------
 
   var showGrid = false;
+  var paintMode = false;        // click or drag cells to block them
+  var blocked = new Set();      // "x,y" of cells noodles must avoid
+  var maskImg = null;
 
   function read() {
     var g = function (id) { return document.getElementById(id); };
@@ -351,10 +366,21 @@
     var w = s * c.thick;
     var penPx = c.pen / 25.4 * DPI;
 
-    if (regrow || !current) current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen, c.seed);
+    if (regrow || !current) current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen, c.seed, blocked);
 
     var parts = [];
-    if (showGrid) {
+    if (paintMode && blocked.size) {
+      var rects = [];
+      blocked.forEach(function (key) {
+        var xy = key.split(","), x = +xy[0], y = +xy[1];
+        if (x < c.gw && y < c.gh) {
+          rects.push('<rect x="' + fmt(ox + x * s) + '" y="' + fmt(oy + y * s) +
+                     '" width="' + fmt(s) + '" height="' + fmt(s) + '"/>');
+        }
+      });
+      parts.push('<g id="blocked" fill="#e8e2d8">' + rects.join("") + "</g>");
+    }
+    if (showGrid || paintMode) {   // painting blind is no fun
       var gl = [];
       for (var i = 0; i <= c.gw; i++) gl.push("M" + fmt(ox + i * s) + " " + fmt(oy) + "V" + fmt(oy + c.gh * s));
       for (var j = 0; j <= c.gh; j++) gl.push("M" + fmt(ox) + " " + fmt(oy + j * s) + "H" + fmt(ox + c.gw * s));
@@ -370,10 +396,112 @@
     svg.innerHTML = parts.join("\n");
 
     var cellsUsed = current.reduce(function (a, n) { return a + n.length; }, 0);
+    var open = c.gw * c.gh - countBlocked(c.gw, c.gh);
     document.getElementById("stats").textContent =
-      current.length + " noodles · " + cellsUsed + "/" + (c.gw * c.gh) + " cells · " +
+      current.length + " noodles · " + cellsUsed + "/" + open + " cells · " +
       fmt(s / DPI * 25.4) + " mm per cell · seed " + c.seed;
   }
+
+  function countBlocked(gw, gh) {
+    var n = 0;
+    blocked.forEach(function (key) {
+      var xy = key.split(",");
+      if (+xy[0] < gw && +xy[1] < gh) n++;
+    });
+    return n;
+  }
+
+  // ---- painting blocked cells ---------------------------------------------
+
+  function cellAt(ev) {
+    var c = read();
+    var W = c.pw * DPI, H = c.ph * DPI, m = c.margin * DPI;
+    var s = Math.min((W - 2 * m) / c.gw, (H - 2 * m) / c.gh);
+    var ox = (W - s * c.gw) / 2, oy = (H - s * c.gh) / 2;
+    var box = svg.getBoundingClientRect();
+    var px = (ev.clientX - box.left) / box.width * W;
+    var py = (ev.clientY - box.top) / box.height * H;
+    var x = Math.floor((px - ox) / s), y = Math.floor((py - oy) / s);
+    if (x < 0 || y < 0 || x >= c.gw || y >= c.gh) return null;
+    return x + "," + y;
+  }
+
+  var painting = false, paintAdds = true;
+
+  svg.addEventListener("pointerdown", function (ev) {
+    if (!paintMode) return;
+    var key = cellAt(ev);
+    if (!key) return;
+    painting = true;
+    paintAdds = !blocked.has(key);
+    maskImg = null;                 // hand edits win over the loaded mask
+    if (paintAdds) blocked.add(key); else blocked.delete(key);
+    svg.setPointerCapture(ev.pointerId);
+    draw(false);
+  });
+  svg.addEventListener("pointermove", function (ev) {
+    if (!painting) return;
+    var key = cellAt(ev);
+    if (!key) return;
+    if (paintAdds ? blocked.has(key) : !blocked.has(key)) return;
+    if (paintAdds) blocked.add(key); else blocked.delete(key);
+    draw(false);
+  });
+  addEventListener("pointerup", function () {
+    if (!painting) return;
+    painting = false;
+    draw(true);                     // same seed, new layout around the mask
+  });
+
+  function setPaint(on) {
+    paintMode = on;
+    svg.style.cursor = on ? "crosshair" : "";
+    document.getElementById("btnPaint").style.background = on ? "rgba(255,210,160,.22)" : "";
+    draw(false);
+  }
+
+  // ---- mask image ---------------------------------------------------------
+
+  // The image is scaled to fit the grid, any leftover space counts as blocked.
+  // Cells over dark pixels are blocked, cells over light ones stay open.
+  function applyMask() {
+    if (!maskImg) return;
+    var c = read();
+    var cv = document.createElement("canvas");
+    cv.width = c.gw; cv.height = c.gh;
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, c.gw, c.gh);
+    var sc = Math.min(c.gw / maskImg.width, c.gh / maskImg.height);
+    var w = maskImg.width * sc, h = maskImg.height * sc;
+    ctx.drawImage(maskImg, (c.gw - w) / 2, (c.gh - h) / 2, w, h);
+    var d = ctx.getImageData(0, 0, c.gw, c.gh).data;
+    blocked.clear();
+    for (var y = 0; y < c.gh; y++) {
+      for (var x = 0; x < c.gw; x++) {
+        var i = (y * c.gw + x) * 4;
+        if (d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114 < 128) blocked.add(x + "," + y);
+      }
+    }
+  }
+
+  document.getElementById("maskFile").addEventListener("change", function (ev) {
+    var file = ev.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        maskImg = img;
+        applyMask();
+        setPaint(true);
+        draw(true);
+      };
+      img.src = reader.result;      // a data URL keeps the canvas readable
+    };
+    reader.readAsDataURL(file);
+    ev.target.value = "";
+  });
 
   // ---- panel --------------------------------------------------------------
 
@@ -390,6 +518,7 @@
     function show() { out.textContent = el.value; }
     el.addEventListener("input", function () {
       show();
+      if (id === "gw" || id === "gh") applyMask();
       // Grid size changes the cell layout, so the noodles have to grow again.
       draw(id === "gw" || id === "gh" || id === "num" || id === "minLen" || id === "maxLen");
     });
@@ -408,12 +537,21 @@
   document.getElementById("btnRandom").addEventListener("click", reseed);
   document.getElementById("btnGrid").addEventListener("click", function () { showGrid = !showGrid; draw(false); });
   document.getElementById("btnSave").addEventListener("click", save);
+  document.getElementById("btnPaint").addEventListener("click", function () { setPaint(!paintMode); });
+  document.getElementById("btnMask").addEventListener("click", function () {
+    document.getElementById("maskFile").click();
+  });
+  document.getElementById("btnClear").addEventListener("click", function () {
+    blocked.clear(); maskImg = null; draw(true);
+  });
 
   function save() {
     var c = read();
     var clone = svg.cloneNode(true);
-    var g = clone.querySelector("#grid");
-    if (g) g.remove();
+    ["#grid", "#blocked"].forEach(function (sel) {
+      var g = clone.querySelector(sel);
+      if (g) g.remove();
+    });
     clone.setAttribute("width", c.pw + "in");
     clone.setAttribute("height", c.ph + "in");
     // The settings ride along in a comment, so any plot can be regenerated.
@@ -434,6 +572,8 @@
     else if (k === "g") { showGrid = !showGrid; draw(false); }
     else if (k === "s") { e.preventDefault(); save(); }
     else if (k === "h") setPanel(panel.hasAttribute("hidden"));
+    else if (k === "x") setPaint(!paintMode);
+    else if (k === "i") document.getElementById("maskFile").click();
   });
 
   document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
@@ -476,6 +616,27 @@
        "the seed reproduces a run");
     eq(JSON.stringify(grow(12, 12, 40, 3, 10, 43)) === JSON.stringify(ns) ? 0 : 1, 1,
        "a different seed gives a different run");
+    // A click on the middle of cell 3,2 maps back to that cell.
+    var c0 = read();
+    var W0 = c0.pw * DPI, H0 = c0.ph * DPI, m0 = c0.margin * DPI;
+    var s0 = Math.min((W0 - 2 * m0) / c0.gw, (H0 - 2 * m0) / c0.gh);
+    var ox0 = (W0 - s0 * c0.gw) / 2, oy0 = (H0 - s0 * c0.gh) / 2;
+    var box = svg.getBoundingClientRect();
+    var hit = cellAt({
+      clientX: box.left + (ox0 + 3.5 * s0) / W0 * box.width,
+      clientY: box.top + (oy0 + 2.5 * s0) / H0 * box.height
+    });
+    eq(hit === "3,2" ? 1 : 0, 1, "a screen click maps back to its cell, got " + hit);
+
+    // Blocked cells stay empty.
+    var wall = new Set();
+    for (var bx = 0; bx < 12; bx++) wall.add(bx + ",5");
+    grow(12, 12, 40, 3, 10, 7, wall).forEach(function (n) {
+      n.forEach(function (cell) {
+        if (Math.floor(cell / 12) === 5) throw new Error("noodle crossed a blocked row");
+      });
+    });
+    ok++;
     document.title = "self check passed, " + ok + " assertions";
   } catch (err) { document.title = "SELF CHECK FAILED: " + err.message; }
 })();
