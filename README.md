@@ -9,6 +9,11 @@ without Processing. All credit for the concept goes there.
 
 ![Screenshot](screenshot.png)
 
+## Design
+
+Sepia survey map, one warm colour family, no shadows and no transitions. The
+tokens live in [DESIGN.md](DESIGN.md) and come from the Bitcoin Wiki Visualizer.
+
 ## Usage
 
 Open `index.html` in a browser, or use the hosted version.
