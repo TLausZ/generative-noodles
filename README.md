@@ -76,11 +76,12 @@ The three tiles under the buttons show what is in use, with dashed stubs marking
 where the noodle edges continue, so you can see at a glance whether a shape lines up.
 When nothing is loaded they show the built-in round cap and twist.
 
-Six SVGs sit next to `index.html` as a starting point, rebuilt from the original
-sketch. `roundEnd.svg`, `twist.svg` and `twistFill.svg` are the plain set. `fingerHead.svg`,
-`fingerTail.svg` and `fingerJoiner.svg` are the finger from the diagram in that repo:
-a nail inside the cap, a longer tip for the tail, and a knuckle collar as the joiner.
-The tail reaches past its box on purpose and grows into the neighbouring cell.
+Six SVGs sit next to `index.html` as a starting point. `roundEnd.svg`, `twist.svg` and
+`twistFill.svg` are the plain set, rebuilt from the original sketch. `fingerHead.svg`,
+`fingerTail.svg` and `fingerJoiner.svg` are the finger from the diagram in that repo,
+traced from it rather than redrawn by hand: a nail inside the cap, a longer tip for
+the tail, and a knuckle collar as the joiner. The tail reaches past its box on purpose
+and grows into the neighbouring cell.
 
 Where a graphic sits, the outline is cut open and the shape carries the line across.
 
