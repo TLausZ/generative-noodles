@@ -3,7 +3,7 @@
 Bendy noodle segments grown into a grid, drawn as SVG for pen plotters. Runs in the
 browser, no build step and no dependencies.
 
-**[Open the app](https://tlausz.github.io/generative-noodles/)**
+**Live Demo: [tlausz.github.io/generative-noodles](https://tlausz.github.io/generative-noodles/)**
 
 A web rewrite of [cadin/generative-noodles](https://github.com/cadin/generative-noodles)
 by [Cadin Batrack](https://github.com/cadin), which is a Processing sketch. All credit
