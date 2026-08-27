@@ -71,15 +71,20 @@
   #ui[data-open=false] #toggle { border-left: 1px solid var(--border-strong); border-radius: 4px; }
   #ui2[data-open=false] #toggle2 { border-right: 1px solid var(--border-strong); border-radius: 4px; }
 
-  .panel h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; color: var(--ink); }
-  .panel .sub { margin: 0 0 var(--panel-pad); font-size: 12px; color: var(--ink-faint); }
-  .panel h2 {
+  /* Kopf- und Sektionszeile tragen rechts den Utility-Knopf ihrer Sektion. */
+  .panel h1, .panel h2 { display: flex; justify-content: space-between; align-items: center; }
+  .panel h1 { margin: 0 0 var(--panel-pad); font-size: 15px; font-weight: 600; color: var(--ink); }
+    .panel h2 {
     margin: var(--panel-pad) 0 var(--control);
-    font-size: 12px; font-weight: 400; color: var(--ink-faint);
+    font-size: 10px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint);
     border-top: 1px solid var(--border); padding-top: var(--control);
   }
 
   .row { margin-bottom: var(--control); }
+  .row.seed { display: flex; align-items: center; gap: var(--control); }
+  .row.seed label { flex: none; margin: 0; }
+  .row.seed input { flex: 1; }
   .row label {
     display: flex; justify-content: space-between; align-items: baseline;
     margin-bottom: 3px; font-size: 12px; color: var(--ink-soft);
@@ -94,6 +99,12 @@
   input[type=range] {
     -webkit-appearance: none; appearance: none; display: block;
     width: 100%; height: 18px; background: transparent; outline: none; cursor: pointer;
+    /* Zurückgelegter Weg unter der halbtransparenten Schiene, --f von 0 bis 1.
+       Die 7px sind der halbe Griff: die Füllung endet an dessen Mitte. */
+    background-image: linear-gradient(var(--ink), var(--ink));
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: calc(7px + (100% - 14px) * var(--f, 0)) 2px;
   }
   input[type=range]::-webkit-slider-runnable-track { height: 2px; background: var(--bar); }
   input[type=range]::-webkit-slider-thumb {
@@ -109,12 +120,26 @@
     color: var(--ink); background: var(--paper-bright);
     border: 1px solid var(--border-strong); border-radius: 4px;
   }
-  .diagram { margin: 0 0 var(--panel-pad); }
-  .diagram img { display: block; width: 100%; height: auto; border: 1px solid var(--border); }
+  .diagram { margin: 0; }
+  .diagram img {
+    display: block; width: 100%; height: auto; border: 1px solid var(--border);
+    filter: grayscale(1) contrast(1.08); mix-blend-mode: multiply;
+  }
   .diagram a { display: block; }
   .diagram figcaption {
     margin-top: 5px; font-size: 11px; line-height: 1.4; color: var(--ink-faint);
   }
+
+  dialog {
+    width: 300px; max-width: calc(100vw - 2 * var(--page));
+    padding: var(--panel-pad); color: var(--ink); background: var(--paper);
+    border: 1px solid var(--border-strong); border-radius: 4px;
+  }
+  dialog::backdrop { background: rgba(74, 58, 40, .35); }
+  dialog .unit { display: block; margin: var(--panel-pad) 0 0 auto; }
+  dialog p { margin: 0 0 var(--control); font-size: 12px; color: var(--ink-soft); }
+  dialog p:last-of-type { margin-bottom: 0; }
+  dialog a { color: var(--ink); }
 
   .pair { display: flex; gap: var(--control); }
   .pair .row { flex: 1; }
@@ -130,13 +155,25 @@
   }
   button.b { flex: 1 1 30%; padding: 7px 4px; }
   button.b[aria-pressed=true] { background: var(--ink); color: var(--paper-bright); }
-  h2 .unit { float: right; margin-top: -3px; padding: 2px 7px; }
+  .unit {
+    flex: none; padding: 2px 7px; font-size: 11px;
+    letter-spacing: 0; text-transform: none; color: var(--ink-soft);
+  }
+  /* Rücknahme erscheint nur, wenn es etwas zurückzunehmen gibt. */
+  .undo { display: block; margin: calc(-1 * var(--control)) 0 var(--control) auto; }
+  .undo[hidden] { display: none; }
 
   #stats {
     margin-top: var(--panel-pad); padding-top: var(--control);
     border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+    display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 3px var(--control);
+    font-size: 11px; font-variant-numeric: tabular-nums;
   }
+  #stats .k { color: var(--ink-faint); }
+  #stats .v { text-align: right; color: var(--ink-soft); }
+  #stats .k.wide { grid-column: 1 / 2; }
+  #stats .v.wide { grid-column: 2 / -1; }
+  #stats .full { grid-column: 1 / -1; color: var(--ink-faint); }
 
   #hint {
     position: fixed; z-index: 10; left: 50%; transform: translateX(-50%);
@@ -160,8 +197,7 @@
 
 <div id="ui" data-open="true">
 <div id="panel" class="panel">
-  <h1>Noodles</h1>
-  <p class="sub">Bendy segments grown into a grid. The SVG is ready for a pen plotter.</p>
+  <h1>Noodles <button class="unit" data-dlg="about">Info</button></h1>
 
   <div class="buttons">
     <button class="b" id="btnRandom">Randomize</button>
@@ -181,8 +217,7 @@
   <div class="row"><label>Thickness<span class="val" id="v_thick"></span></label><input type="range" id="thick" min=".2" max=".95" step=".01" value=".62"></div>
   <div class="row"><label>Margin<span class="val" id="v_margin"></span></label><input type="range" id="margin" min="0" max="5" step=".1" value="1.5"></div>
   <div class="row"><label>Pen size<span class="val" id="v_pen"></span></label><input type="range" id="pen" min=".1" max="2" step=".05" value=".5"></div>
-  <h2>Seed</h2>
-  <div class="row"><input type="number" id="seed" value="1" min="0" step="1"></div>
+  <div class="row seed"><label>Seed</label><input type="number" id="seed" value="1" min="0" step="1"></div>
 
 </div>
 <button id="toggle" class="flap" aria-label="Panel ein- und ausklappen">‹</button>
@@ -191,27 +226,21 @@
 <div id="ui2" data-open="true">
 <button id="toggle2" class="flap" aria-label="Zweites Panel ein- und ausklappen">›</button>
 <div id="panel2" class="panel">
-  <h1>Graphics</h1>
-  <p class="sub">Own SVG shapes for the ends and for straight sections, and a black and white image that blocks cells.</p>
+  <h1>Graphics <button class="unit" data-dlg="gfxInfo">Info</button></h1>
   <div class="buttons">
     <button class="b" id="btnHead">Head</button>
     <button class="b" id="btnTail">Tail</button>
     <button class="b" id="btnJoin">Joiner</button>
-    <button class="b" id="btnGfxReset">Reset</button>
   </div>
+  <button class="unit undo" id="btnGfxReset" hidden>Reset</button>
   <input type="file" id="gfxFile" accept=".svg,image/svg+xml" hidden>
-  <figure class="diagram">
-    <a href="svgDiagram.png" target="_blank" rel="noopener"><img src="svgDiagram.png" alt="Head, tail and joiner drawn on a 100 by 100 box, with the noodle edges meeting the bottom"></a>
-    <figcaption>Draw on a 100 by 100 box. The noodle edges run down the sides, the connection is the bottom edge; a joiner connects on both.</figcaption>
-  </figure>
   <div class="row"><label>Joiners<span class="val" id="v_joiners"></span></label><input type="range" id="joiners" min="0" max="1" step=".05" value="0"></div>
   <label class="check"><input type="checkbox" id="overlaps" checked> Let noodles cross</label>
 
-  <h2>Block mask</h2>
+  <h2>Block mask <button class="unit" id="btnClear" hidden>Clear</button></h2>
   <div class="buttons">
     <button class="b" id="btnPaint">Paint cells</button>
     <button class="b" id="btnMask">Load image</button>
-    <button class="b" id="btnClear">Clear</button>
   </div>
   <input type="file" id="maskFile" accept="image/*" hidden>
   <label class="check"><input type="checkbox" id="maskInvert"> Invert mask</label>
@@ -224,6 +253,23 @@
 
 </div>
 </div>
+
+<dialog id="about">
+  <p>Bendy segments grown into a grid. The saved SVG carries the real paper size,
+  black lines on transparent, ready for a pen plotter.</p>
+  <p>After <a href="https://github.com/cadin/generative-noodles" target="_blank" rel="noopener">generative-noodles</a>
+  by Cadin Batrack.
+  <a href="https://github.com/TLausZ/generative-noodles" target="_blank" rel="noopener">Source</a>.</p>
+  <button class="unit close">Close</button>
+</dialog>
+
+<dialog id="gfxInfo">
+  <figure class="diagram">
+    <a href="svgDiagram.png" target="_blank" rel="noopener"><img src="svgDiagram.png" alt="Head, tail and joiner drawn on a 100 by 100 box, with the noodle edges meeting the bottom"></a>
+    <figcaption>Draw on a 100 by 100 box. The noodle edges run down the sides, the connection is the bottom edge; a joiner connects on both.</figcaption>
+  </figure>
+  <button class="unit close">Close</button>
+</dialog>
 
 <div id="hint"><b>R</b> randomize · <b>G</b> grid · <b>X</b> paint cells · <b>I</b> mask · <b>S</b> save SVG · <b>H</b> <b>E</b> panels</div>
 
@@ -602,10 +648,19 @@
 
     var cellsUsed = current.noodles.reduce(function (a, n) { return a + n.length; }, 0);
     var open = c.gw * c.gh - countBlocked(c.gw, c.gh) + current.crossings.size;
-    document.getElementById("stats").textContent =
-      current.noodles.length + " noodles · " + current.crossings.size + " crossings · " +
-      cellsUsed + "/" + open + " cells · " +
-      fmt(s / DPI * 25.4) + " mm per cell · seed " + c.seed;
+    document.getElementById("stats").innerHTML =
+      '<span class="k">noodles</span><span class="v">' + current.noodles.length + "</span>" +
+      '<span class="k">crossings</span><span class="v">' + current.crossings.size + "</span>" +
+      '<span class="k">cells</span><span class="v">' + cellsUsed + "/" + open + "</span>" +
+      '<span class="k">mm/cell</span><span class="v">' + fmt(s / DPI * 25.4) + "</span>" +
+      '<span class="k wide">seed</span><span class="v wide">' + c.seed + "</span>";
+
+    ["head", "tail", "joiner"].forEach(function (slot) {
+      var id = slot === "joiner" ? "btnJoin" : "btn" + slot[0].toUpperCase() + slot.slice(1);
+      document.getElementById(id).setAttribute("aria-pressed", gfx[slot] ? "true" : "false");
+    });
+    document.getElementById("btnGfxReset").hidden = !(gfx.head || gfx.tail || gfx.joiner);
+    document.getElementById("btnClear").hidden = blocked.size === 0 && !maskImg;
   }
 
   function countBlocked(gw, gh) {
@@ -747,7 +802,7 @@
       var doc = new DOMParser().parseFromString(reader.result, "image/svg+xml");
       var root = doc.documentElement;
       if (root.nodeName !== "svg" || doc.querySelector("parsererror")) {
-        document.getElementById("stats").textContent = "that file is not an SVG";
+        document.getElementById("stats").innerHTML = '<span class="full">that file is not an SVG</span>';
         return;
       }
       scrub(root);
@@ -759,8 +814,9 @@
       Array.prototype.forEach.call(root.childNodes, function (n) { inner += ser.serializeToString(n); });
       gfx[slot] = { vb: vb, inner: inner };
       if (slot === "joiner" && +document.getElementById("joiners").value === 0) {
-        document.getElementById("joiners").value = .35;
-        document.getElementById("v_joiners").textContent = ".35";
+        var jn = document.getElementById("joiners");
+        jn.value = .35;
+        showRange(jn);
       }
       draw(false);
     };
@@ -787,7 +843,7 @@
     var mar = document.getElementById("margin");
     mar.max = cfg.margin.max; mar.step = cfg.margin.step;
     mar.value = Math.round(+mar.value * factor * 10) / 10;
-    document.getElementById("v_margin").textContent = mar.value;
+    showRange(mar);
     unit = to;
     this.textContent = to;
     draw(false);
@@ -840,19 +896,23 @@
   if (narrow()) { leftPanel.set(false); rightPanel.set(false); }
 
   ["margin", "pen", "gw", "gh", "num", "minLen", "maxLen", "thick", "joiners"].forEach(function (id) {
-    var el = document.getElementById(id), out = document.getElementById("v_" + id);
-    function show() { out.textContent = el.value; }
+    var el = document.getElementById(id);
     el.addEventListener("input", function () {
-      show();
+      showRange(el);
       if (id === "gw" || id === "gh") applyMask();
       // Grid size changes the cell layout, so the noodles have to grow again.
       draw(id === "gw" || id === "gh" || id === "num" || id === "minLen" || id === "maxLen");
     });
-    show();
+    showRange(el);
   });
   ["pw", "ph"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", function () { draw(false); });
   });
+
+  function showRange(el) {
+    document.getElementById("v_" + el.id).textContent = el.value;
+    el.style.setProperty("--f", (el.value - el.min) / (el.max - el.min));
+  }
 
   function reseed() {
     document.getElementById("seed").value = Math.floor(Math.random() * 1e9);
@@ -897,8 +957,15 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
 
+  Array.prototype.forEach.call(document.querySelectorAll("[data-dlg]"), function (b) {
+    var d = document.getElementById(b.getAttribute("data-dlg"));
+    b.onclick = function () { d.showModal(); };
+    d.onclick = function (e) { if (e.target === d) d.close(); };   // Klick daneben
+    d.querySelector(".close").onclick = function () { d.close(); };
+  });
+
   addEventListener("keydown", function (e) {
-    if (e.target.tagName === "INPUT") return;
+    if (e.target.tagName === "INPUT" || document.querySelector("dialog[open]")) return;
     var k = e.key.toLowerCase();
     if (k === "r") reseed();
     else if (k === "g") { showGrid = !showGrid; draw(false); }

@@ -42,7 +42,7 @@ carries the line across.
 
 Draw it on a square viewBox, vertically, with the noodle edges down the left and right
 sides and the connection along the bottom edge; a joiner connects top and bottom. That
-is the convention of the original, shown in the diagram under the buttons. Keep your
+is the convention of the original, shown in the diagram behind the info button. Keep your
 shapes to single lines: a traced outline gives every stroke two edges, which a plotter
 then draws twice. Colour and stroke width in the file are dropped in favour of the pen
 size from the panel.
