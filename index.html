@@ -24,7 +24,8 @@
     position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
   }
   #art {
-    max-width: 100%; max-height: 100%;
+    /* aspect-ratio plus both max sizes lets the sheet shrink to fit either way */
+    width: auto; height: auto; max-width: 100%; max-height: 100%;
     background: #fff; box-shadow: 0 18px 60px rgba(0,0,0,.55);
   }
 
@@ -470,8 +471,7 @@
     if (uses.length) parts.push('<g id="gfx">' + uses.join("") + "</g>");
 
     svg.setAttribute("viewBox", "0 0 " + fmt(W) + " " + fmt(H));
-    svg.setAttribute("width", W);
-    svg.setAttribute("height", H);
+    svg.style.aspectRatio = W + " / " + H;
     svg.innerHTML = parts.join("\n");
 
     var cellsUsed = current.reduce(function (a, n) { return a + n.length; }, 0);
@@ -684,6 +684,7 @@
       var g = clone.querySelector(sel);
       if (g) g.remove();
     });
+    clone.removeAttribute("style");
     clone.setAttribute("width", c.pw + "in");
     clone.setAttribute("height", c.ph + "in");
     // The settings ride along in a comment, so any plot can be regenerated.
