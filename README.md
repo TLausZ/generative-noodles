@@ -3,6 +3,8 @@
 Bendy noodle segments grown into a grid, drawn as SVG for pen plotters. Runs in the
 browser, no build step and no dependencies.
 
+**[Open the app](https://tlausz.github.io/generative-noodles/)**
+
 A web rewrite of [cadin/generative-noodles](https://github.com/cadin/generative-noodles)
 by [Cadin Batrack](https://github.com/cadin), which is a Processing sketch. All credit
 for the concept goes there.
@@ -11,7 +13,8 @@ for the concept goes there.
 
 ## Usage
 
-Open `index.html` in a browser, or use the hosted version. Sliders sit in the left
+Open the [hosted version](https://tlausz.github.io/generative-noodles/) or
+`index.html` from a clone. Sliders sit in the left
 panel, graphics and the mask in the right one; both fold away at the flap on their
 inner edge.
 
