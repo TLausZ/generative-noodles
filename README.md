@@ -38,3 +38,8 @@ page title.
 
 Blackout cells, mask images, joiner and twist graphics, config load and save, and the
 path edit mode from the original.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The original Processing sketch by Cadin Batrack is
+released under the Unlicense.
