@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181d">
+<title>Generative Noodles</title>
+<style>
+  :root {
+    --ui-bg: rgba(24, 27, 34, 0.86);
+    --ui-border: rgba(255, 210, 160, 0.20);
+    --ui-text: rgba(240, 236, 230, 0.94);
+    --ui-accent: #ffb454;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #16181d; overflow: hidden; overscroll-behavior: none;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  #stage {
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 28px;
+  }
+  #art {
+    max-width: 100%; max-height: 100%;
+    background: #fff; box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  }
+
+  #toggle {
+    position: fixed; z-index: 12;
+    top: calc(14px + var(--safe-t)); left: 14px;
+    width: 42px; height: 42px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 17px; line-height: 1;
+    color: var(--ui-text); background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    cursor: pointer;
+  }
+
+  #panel {
+    position: fixed; z-index: 11;
+    top: calc(66px + var(--safe-t)); left: 14px;
+    width: 268px; max-width: calc(100vw - 28px);
+    max-height: calc(100vh - 90px - var(--safe-t) - var(--safe-b));
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 14px 16px calc(14px + var(--safe-b));
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+    color: var(--ui-text); font-size: 12.5px;
+    box-shadow: 0 12px 44px rgba(0,0,0,.5);
+    transition: opacity .22s ease, transform .22s ease;
+  }
+  #panel[hidden] { display: block; opacity: 0; transform: translateY(-10px) scale(.98); pointer-events: none; }
+  #panel h1 {
+    margin: 0 0 3px; font-size: 12px; font-weight: 650; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ui-accent);
+  }
+  #panel .sub { margin: 0 0 11px; opacity: .5; font-size: 11px; line-height: 1.45; }
+  #panel h2 {
+    margin: 14px 0 8px; font-size: 10px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; opacity: .42;
+  }
+
+  .row { margin-bottom: 9px; }
+  .row label {
+    display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;
+  }
+  .row label .val { opacity: .55; font-variant-numeric: tabular-nums; font-size: 11px; }
+  .check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+  .check input { accent-color: var(--ui-accent); width: 15px; height: 15px; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; display: block;
+    width: 100%; height: 22px; background: transparent; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track { height: 3px; border-radius: 3px; background: rgba(255,210,160,.22); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; margin-top: -8px;
+    width: 18px; height: 18px; border-radius: 50%; border: none;
+    background: var(--ui-accent); box-shadow: 0 0 10px rgba(255,180,84,.55);
+  }
+  input[type=range]::-moz-range-track { height: 3px; border-radius: 3px; background: rgba(255,210,160,.22); }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%; border: none; background: var(--ui-accent);
+  }
+  input[type=number] {
+    width: 100%; padding: 6px 8px; font: inherit; font-size: 12px;
+    color: var(--ui-text); background: rgba(255,255,255,.06);
+    border: 1px solid var(--ui-border); border-radius: 8px;
+  }
+  .pair { display: flex; gap: 8px; }
+  .pair .row { flex: 1; }
+
+  #toggle:focus-visible, button.b:focus-visible, input:focus-visible {
+    outline: 2px solid var(--ui-accent); outline-offset: 2px;
+  }
+
+  .buttons { display: flex; gap: 6px; margin-bottom: 13px; flex-wrap: wrap; }
+  button.b {
+    flex: 1 1 30%; padding: 10px 6px; font: inherit; font-size: 11.5px;
+    color: var(--ui-text); background: rgba(255,210,160,.08);
+    border: 1px solid var(--ui-border); border-radius: 10px; cursor: pointer;
+  }
+  button.b:active { background: rgba(255,210,160,.22); }
+
+  #stats { margin-top: 10px; font-size: 10.5px; opacity: .4; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+  #hint {
+    position: fixed; z-index: 10; left: 50%; transform: translateX(-50%);
+    bottom: calc(16px + var(--safe-b));
+    color: rgba(60,60,60,.45); font-size: 11px; letter-spacing: .05em;
+    pointer-events: none; text-align: center;
+  }
+
+  @media (max-width: 680px), (max-height: 520px) {
+    #stage { padding: 14px; }
+    #toggle { top: auto; bottom: calc(14px + var(--safe-b)); left: 14px; }
+    #panel {
+      top: auto; left: 10px; right: 10px; width: auto;
+      bottom: calc(66px + var(--safe-b)); max-height: 62vh;
+    }
+    #panel[hidden] { transform: translateY(10px) scale(.98); }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage"><svg id="art" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+<button id="toggle" aria-label="Settings">✕</button>
+
+<div id="panel">
+  <h1>Noodles</h1>
+  <p class="sub">Bendy segments grown into a grid. The SVG is ready for a pen plotter.</p>
+
+  <div class="buttons">
+    <button class="b" id="btnRandom">Randomize</button>
+    <button class="b" id="btnGrid">Grid</button>
+    <button class="b" id="btnSave">Save SVG</button>
+  </div>
+
+  <h2>Paper</h2>
+  <div class="pair">
+    <div class="row"><label>Width in<span class="val"></span></label><input type="number" id="pw" value="11" min="1" max="60" step=".5"></div>
+    <div class="row"><label>Height in<span class="val"></span></label><input type="number" id="ph" value="8.5" min="1" max="60" step=".5"></div>
+  </div>
+  <div class="row"><label>Margin<span class="val" id="v_margin"></span></label><input type="range" id="margin" min="0" max="2" step=".1" value=".5"></div>
+  <div class="row"><label>Pen size<span class="val" id="v_pen"></span></label><input type="range" id="pen" min=".1" max="2" step=".05" value=".5"></div>
+
+  <h2>Grid</h2>
+  <div class="row"><label>Columns<span class="val" id="v_gw"></span></label><input type="range" id="gw" min="2" max="48" step="1" value="18"></div>
+  <div class="row"><label>Rows<span class="val" id="v_gh"></span></label><input type="range" id="gh" min="2" max="48" step="1" value="14"></div>
+
+  <h2>Noodles</h2>
+  <div class="row"><label>Count<span class="val" id="v_num"></span></label><input type="range" id="num" min="1" max="120" step="1" value="30"></div>
+  <div class="row"><label>Min length<span class="val" id="v_minLen"></span></label><input type="range" id="minLen" min="2" max="40" step="1" value="4"></div>
+  <div class="row"><label>Max length<span class="val" id="v_maxLen"></span></label><input type="range" id="maxLen" min="2" max="40" step="1" value="14"></div>
+  <div class="row"><label>Thickness<span class="val" id="v_thick"></span></label><input type="range" id="thick" min=".2" max=".95" step=".01" value=".62"></div>
+  <label class="check"><input type="checkbox" id="curves" checked> Curved corners</label>
+
+  <div id="stats"></div>
+</div>
+
+<div id="hint">R = randomize · G = grid · S = save SVG · H = panel</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DPI = 96;
+  var svg = document.getElementById("art");
+
+  // ---- geometry -----------------------------------------------------------
+  // Everything sits on a square grid, so a noodle is just a chain of cells and
+  // every turn is exactly 90 degrees. That means the outline needs no offset
+  // maths: straight cells are parallel lines, corners are concentric arcs.
+
+  function left(d) { return { x: d.y, y: -d.x }; }          // screen-left of d
+  function turnOf(a, b) { return a.x * b.y - a.y * b.x; }   // >0 = right turn
+
+  // One side of the noodle as a chain: a start point plus segments to follow.
+  function sideChain(centers, dirs, sgn, s, w, curves) {
+    var n = left(dirs[0]), half = w / 2;
+    var start = {
+      x: centers[0].x - dirs[0].x * (s / 2 - half) + n.x * sgn * half,
+      y: centers[0].y - dirs[0].y * (s / 2 - half) + n.y * sgn * half
+    };
+    var segs = [], i;
+
+    for (i = 0; i < dirs.length; i++) {
+      var d = dirs[i];
+      var nl = left(d);
+      var mid = { x: (centers[i].x + centers[i + 1].x) / 2, y: (centers[i].y + centers[i + 1].y) / 2 };
+      var pt = { x: mid.x + nl.x * sgn * half, y: mid.y + nl.y * sgn * half };
+
+      if (i > 0 && curves) {
+        var t = turnOf(dirs[i - 1], d);
+        if (t !== 0) {
+          // Outside of the bend gets the long radius, inside the short one.
+          segs.push({ t: "A", p: pt, r: s / 2 + sgn * t * half, sweep: t > 0 ? 1 : 0 });
+          continue;
+        }
+      }
+      segs.push({ t: "L", p: pt });
+    }
+
+    var last = centers.length - 1, dl = dirs[dirs.length - 1], nlast = left(dl);
+    segs.push({ t: "L", p: {
+      x: centers[last].x + dl.x * (s / 2 - half) + nlast.x * sgn * half,
+      y: centers[last].y + dl.y * (s / 2 - half) + nlast.y * sgn * half
+    }});
+    return { start: start, segs: segs };
+  }
+
+  function fmt(v) { return Math.round(v * 100) / 100; }
+
+  function chainToPath(start, segs, out) {
+    for (var i = 0; i < segs.length; i++) {
+      var g = segs[i];
+      if (g.t === "A") out.push("A" + fmt(g.r) + " " + fmt(g.r) + " 0 0 " + g.sweep + " " + fmt(g.p.x) + " " + fmt(g.p.y));
+      else out.push("L" + fmt(g.p.x) + " " + fmt(g.p.y));
+    }
+  }
+
+  // Walk the left side forwards, cap, the right side backwards, cap, close.
+  function outline(cells, gw, s, ox, oy, w, curves) {
+    var centers = cells.map(function (c) {
+      return { x: ox + (c % gw + .5) * s, y: oy + (Math.floor(c / gw) + .5) * s };
+    });
+    var dirs = [], i;
+    for (i = 0; i < centers.length - 1; i++) {
+      dirs.push({
+        x: Math.sign(centers[i + 1].x - centers[i].x),
+        y: Math.sign(centers[i + 1].y - centers[i].y)
+      });
+    }
+    var L = sideChain(centers, dirs, 1, s, w, curves);
+    var R = sideChain(centers, dirs, -1, s, w, curves);
+
+    var d = ["M" + fmt(L.start.x) + " " + fmt(L.start.y)];
+    chainToPath(L.start, L.segs, d);
+
+    var half = w / 2;
+    var endR = R.segs[R.segs.length - 1].p;
+    d.push("A" + fmt(half) + " " + fmt(half) + " 0 0 1 " + fmt(endR.x) + " " + fmt(endR.y));
+
+    // Reversed right side: same arcs, opposite sweep, targets shifted by one.
+    var pts = [R.start].concat(R.segs.map(function (g) { return g.p; }));
+    for (i = R.segs.length - 1; i >= 0; i--) {
+      var g = R.segs[i], target = pts[i];
+      if (g.t === "A") d.push("A" + fmt(g.r) + " " + fmt(g.r) + " 0 0 " + (g.sweep ? 0 : 1) + " " + fmt(target.x) + " " + fmt(target.y));
+      else d.push("L" + fmt(target.x) + " " + fmt(target.y));
+    }
+    d.push("A" + fmt(half) + " " + fmt(half) + " 0 0 1 " + fmt(L.start.x) + " " + fmt(L.start.y));
+    d.push("Z");
+    return d.join(" ");
+  }
+
+  // ---- growing ------------------------------------------------------------
+
+  function grow(gw, gh, num, minLen, maxLen) {
+    var occ = new Uint8Array(gw * gh), order = [], i;
+    for (i = 0; i < gw * gh; i++) order.push(i);
+    for (i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)), t = order[i];
+      order[i] = order[j]; order[j] = t;
+    }
+
+    function freeNeighbours(c) {
+      var x = c % gw, y = Math.floor(c / gw), out = [];
+      if (x > 0 && !occ[c - 1]) out.push(c - 1);
+      if (x < gw - 1 && !occ[c + 1]) out.push(c + 1);
+      if (y > 0 && !occ[c - gw]) out.push(c - gw);
+      if (y < gh - 1 && !occ[c + gw]) out.push(c + gw);
+      return out;
+    }
+
+    var noodles = [];
+    for (var k = 0; k < order.length && noodles.length < num; k++) {
+      var start = order[k];
+      if (occ[start]) continue;
+      occ[start] = 1;
+      var target = minLen + Math.floor(Math.random() * (maxLen - minLen + 1));
+      var cells = [start], head = start, tail = start, atHead = true;
+
+      while (cells.length < target) {
+        var n = freeNeighbours(atHead ? head : tail);
+        if (!n.length) {
+          if (!atHead) break;            // both ends tried
+          atHead = false;
+          continue;
+        }
+        var next = n[Math.floor(Math.random() * n.length)];
+        occ[next] = 1;
+        if (atHead) { cells.push(next); head = next; }
+        else { cells.unshift(next); tail = next; }
+      }
+
+      if (cells.length > 1) noodles.push(cells);
+      else occ[start] = 0;               // a lone cell is no noodle
+    }
+    return noodles;
+  }
+
+  // ---- drawing ------------------------------------------------------------
+
+  var showGrid = false;
+
+  function read() {
+    var g = function (id) { return document.getElementById(id); };
+    var minLen = +g("minLen").value, maxLen = +g("maxLen").value;
+    return {
+      pw: +g("pw").value, ph: +g("ph").value,
+      margin: +g("margin").value, pen: +g("pen").value,
+      gw: +g("gw").value, gh: +g("gh").value,
+      num: +g("num").value,
+      minLen: Math.min(minLen, maxLen), maxLen: Math.max(minLen, maxLen),
+      thick: +g("thick").value, curves: g("curves").checked
+    };
+  }
+
+  var current = null;
+
+  function draw(regrow) {
+    var c = read();
+    var W = c.pw * DPI, H = c.ph * DPI, m = c.margin * DPI;
+    var s = Math.min((W - 2 * m) / c.gw, (H - 2 * m) / c.gh);
+    var ox = (W - s * c.gw) / 2, oy = (H - s * c.gh) / 2;
+    var w = s * c.thick;
+    var penPx = c.pen / 25.4 * DPI;
+
+    if (regrow || !current) current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen);
+
+    var parts = [];
+    if (showGrid) {
+      var gl = [];
+      for (var i = 0; i <= c.gw; i++) gl.push("M" + fmt(ox + i * s) + " " + fmt(oy) + "V" + fmt(oy + c.gh * s));
+      for (var j = 0; j <= c.gh; j++) gl.push("M" + fmt(ox) + " " + fmt(oy + j * s) + "H" + fmt(ox + c.gw * s));
+      parts.push('<path id="grid" d="' + gl.join(" ") + '" stroke="#d9d9d9" stroke-width="1" fill="none"/>');
+    }
+    var d = current.map(function (cells) { return outline(cells, c.gw, s, ox, oy, w, c.curves); });
+    parts.push('<path d="' + d.join(" ") + '" fill="none" stroke="#000" stroke-width="' + fmt(penPx) +
+               '" stroke-linecap="round" stroke-linejoin="round"/>');
+
+    svg.setAttribute("viewBox", "0 0 " + fmt(W) + " " + fmt(H));
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.innerHTML = parts.join("\n");
+
+    var cellsUsed = current.reduce(function (a, n) { return a + n.length; }, 0);
+    document.getElementById("stats").textContent =
+      current.length + " noodles · " + cellsUsed + "/" + (c.gw * c.gh) + " cells · " +
+      fmt(s / DPI * 25.4) + " mm per cell";
+  }
+
+  // ---- panel --------------------------------------------------------------
+
+  var panel = document.getElementById("panel"), toggle = document.getElementById("toggle");
+  function setPanel(open) {
+    if (open) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", "");
+    toggle.textContent = open ? "✕" : "☰";
+  }
+  toggle.addEventListener("click", function () { setPanel(panel.hasAttribute("hidden")); });
+  if (matchMedia("(max-width: 680px), (max-height: 520px)").matches) setPanel(false);
+
+  ["margin", "pen", "gw", "gh", "num", "minLen", "maxLen", "thick"].forEach(function (id) {
+    var el = document.getElementById(id), out = document.getElementById("v_" + id);
+    function show() { out.textContent = el.value; }
+    el.addEventListener("input", function () {
+      show();
+      // Grid size changes the cell layout, so the noodles have to grow again.
+      draw(id === "gw" || id === "gh" || id === "num" || id === "minLen" || id === "maxLen");
+    });
+    show();
+  });
+  ["pw", "ph"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", function () { draw(false); });
+  });
+  document.getElementById("curves").addEventListener("change", function () { draw(false); });
+
+  document.getElementById("btnRandom").addEventListener("click", function () { draw(true); });
+  document.getElementById("btnGrid").addEventListener("click", function () { showGrid = !showGrid; draw(false); });
+  document.getElementById("btnSave").addEventListener("click", save);
+
+  function save() {
+    var c = read();
+    var clone = svg.cloneNode(true);
+    var g = clone.querySelector("#grid");
+    if (g) g.remove();
+    clone.setAttribute("width", c.pw + "in");
+    clone.setAttribute("height", c.ph + "in");
+    var blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + clone.outerHTML], { type: "image/svg+xml" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "noodles-" + c.gw + "x" + c.gh + ".svg";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  addEventListener("keydown", function (e) {
+    if (e.target.tagName === "INPUT") return;
+    var k = e.key.toLowerCase();
+    if (k === "r") draw(true);
+    else if (k === "g") { showGrid = !showGrid; draw(false); }
+    else if (k === "s") { e.preventDefault(); save(); }
+    else if (k === "h") setPanel(panel.hasAttribute("hidden"));
+  });
+
+  draw(true);
+
+  // ---- self check: index.html?test=1 --------------------------------------
+  if (location.search.indexOf("test=1") >= 0) try {
+    var ok = 0;
+    function eq(a, b, what) {
+      if (Math.abs(a - b) > 1e-6) throw new Error(what + ": " + a + " != " + b);
+      ok++;
+    }
+    // A straight three-cell noodle: cells 0,1,2 of a 3x1 grid, s=100, w=60.
+    // Its outline is a 260 x 60 pill whose caps end flush with the outer cell
+    // edges at x=0 and x=300.
+    var straight = outline([0, 1, 2], 3, 100, 0, 0, 60, true);
+    var pts = [];
+    straight.replace(/([MLA])([^MLAZ]*)/g, function (_, cmd, rest) {
+      var v = rest.trim().split(/[ ,]+/).map(Number);
+      pts.push({ x: v[v.length - 2], y: v[v.length - 1] });
+      return "";
+    });
+    var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+    eq(pts[0].x, 30, "cap joint sits w/2 inside the outer cell edge");
+    eq(pts[0].y, 20, "left side runs w/2 above the centre line");
+    eq(Math.min.apply(null, xs), 30, "leftmost outline point");
+    eq(Math.max.apply(null, xs), 270, "rightmost outline point");
+    eq(Math.min.apply(null, ys), 20, "top of the noodle");
+    eq(Math.max.apply(null, ys), 80, "bottom of the noodle");
+
+    // Growing never puts two noodles in one cell.
+    var ns = grow(12, 12, 40, 3, 10), seen = {};
+    ns.forEach(function (n) { n.forEach(function (c) {
+      if (seen[c]) throw new Error("cell " + c + " used twice");
+      seen[c] = 1;
+    }); });
+    ok++;
+    document.title = "self check passed, " + ok + " assertions";
+  } catch (err) { document.title = "SELF CHECK FAILED: " + err.message; }
+})();
+</script>
+</body>
+</html>
