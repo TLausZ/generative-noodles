@@ -426,7 +426,7 @@
     function settle(cells) {
       for (var i = 1; i < cells.length - 1; i++) {
         var cell = cells[i];
-        if (axis[cell] === 4) continue;
+        if (axis[cell] === 4 || axis[cell] === 1 || axis[cell] === 2) continue;
         var dxIn = cells[i] % gw - cells[i - 1] % gw;
         var dxOut = cells[i + 1] % gw - cells[i] % gw;
         var dyIn = Math.floor(cells[i] / gw) - Math.floor(cells[i - 1] / gw);
@@ -451,11 +451,10 @@
           continue;
         }
         var pick = opts[Math.floor(rnd() * opts.length)];
+        // Record the axis running underneath before overwriting it.
+        if (pick.cross !== undefined) crossings.set(pick.cross, axis[pick.cross]);
         pick.cells.forEach(function (cell) { axis[cell] = 3; });
-        if (pick.cross !== undefined) {
-          axis[pick.cross] = 4;
-          crossings.set(pick.cross, noodles.length);
-        }
+        if (pick.cross !== undefined) axis[pick.cross] = 4;
         if (atHead) {
           pick.cells.forEach(function (cell) { cells.push(cell); });
           head = pick.head;
@@ -463,12 +462,27 @@
           pick.cells.forEach(function (cell) { cells.unshift(cell); });
           tail = pick.head;
         }
+        // Straight cells become crossable right away, so a noodle can cross
+        // its own body: one right, one up, one left, two down.
+        settle(cells);
       }
 
-      if (cells.length > 1) { settle(cells); noodles.push(cells); }
+      if (cells.length > 1) noodles.push(cells);
       else axis[start] = 0;              // a lone cell is no noodle
     }
     return { noodles: noodles, crossings: crossings };
+  }
+
+  // A noodle is underneath wherever it runs along the axis the crossing
+  // recorded. The one going across it is on top and stays whole.
+  function crossGapsFor(cells, crossings) {
+    var out = [];
+    for (var i = 1; i < cells.length - 1; i++) {
+      var a = crossings.get(cells[i]);
+      if (!a) continue;
+      if ((Math.abs(cells[i + 1] - cells[i]) === 1 ? 1 : 2) === a) out.push(i);
+    }
+    return out;
   }
 
   // ---- drawing ------------------------------------------------------------
@@ -538,11 +552,7 @@
     }
     var d = [], uses = [];
     current.noodles.forEach(function (cells, j) {
-      // Cells another noodle crosses here belong to the one that came later.
-      var crossAt = [];
-      for (var i = 1; i < cells.length - 1; i++) {
-        if (current.crossings.get(cells[i]) > j) crossAt.push(i);
-      }
+      var crossAt = crossGapsFor(cells, current.crossings);
       var r = noodleParts(cells, c.gw, s, ox, oy, w, gfx, c.joiners, c.seed, j, penPx, crossAt);
       d.push(r.d);
       uses = uses.concat(r.uses);
@@ -864,23 +874,47 @@
     // of them run straight through it.
     var run = grow(20, 20, 60, 4, 14, 5, null, true);
     if (!run.crossings.size) throw new Error("no crossings at all");
-    run.crossings.forEach(function (owner, cell) {
-      var users = run.noodles.filter(function (n) { return n.indexOf(cell) >= 0; });
-      if (users.length !== 2) throw new Error("crossed cell is in " + users.length + " noodles");
-      users.forEach(function (n) {
-        var i = n.indexOf(cell);
-        if (i === 0 || i === n.length - 1) throw new Error("a noodle ends on a crossing");
-        var straight = (n[i] - n[i - 1]) === (n[i + 1] - n[i]);
-        if (!straight) throw new Error("a noodle turns on a crossing");
+    run.crossings.forEach(function (under, cell) {
+      var visits = 0;
+      run.noodles.forEach(function (n) {
+        n.forEach(function (c, i) {
+          if (c !== cell) return;
+          visits++;
+          if (i === 0 || i === n.length - 1) throw new Error("a noodle ends on a crossing");
+          if ((n[i] - n[i - 1]) !== (n[i + 1] - n[i])) throw new Error("a noodle turns on a crossing");
+        });
       });
+      if (visits !== 2) throw new Error("crossed cell visited " + visits + " times");
     });
     ok++;
 
+    // Across the whole drawing: every crossing is cut exactly once, on the run
+    // underneath, and left whole on the run going over it.
+    (function () {
+      var gapCount = new Map();
+      run.noodles.forEach(function (n) {
+        crossGapsFor(n, run.crossings).forEach(function (i) {
+          gapCount.set(n[i], (gapCount.get(n[i]) || 0) + 1);
+        });
+      });
+      run.crossings.forEach(function (a, cell) {
+        if (gapCount.get(cell) !== 1) {
+          throw new Error("cell " + cell + " cut " + (gapCount.get(cell) || 0) + " times");
+        }
+      });
+      ok++;
+    })();
+
+    // One right, one up, one left, two down: the noodle passes over itself, and
+    // the gap belongs to the horizontal run, not the vertical one.
+    var selfCross = [10, 11, 12, 13, 8, 7, 12, 17];   // gw 5, cell 12 twice
+    var gapsAt = crossGapsFor(selfCross, new Map([[12, 1]]));
+    eq(gapsAt.length, 1, "one gap on a self crossing");
+    eq(gapsAt[0], 2, "the gap sits on the horizontal pass");
+    eq(crossGapsFor(selfCross, new Map([[12, 2]]))[0], 6, "mirrored, the gap moves to the vertical pass");
+
     // The lower noodle of a crossing is cut open, the upper one is not.
-    var lower = run.noodles[0], cut = [];
-    for (var ci = 1; ci < lower.length - 1; ci++) {
-      if (run.crossings.get(lower[ci]) > 0) cut.push(ci);
-    }
+    var lower = run.noodles[0], cut = crossGapsFor(lower, run.crossings);
     if (cut.length) {
       var over = noodleParts(lower, 20, 100, 0, 0, 60, {}, 0, 1, 0, 1, cut);
       var plain = noodleParts(lower, 20, 100, 0, 0, 60, {}, 0, 1, 0, 1, []);

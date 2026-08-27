@@ -41,9 +41,13 @@ Blocked cells and the grid are drawing aids and never end up in the saved SVG.
 
 With **Let noodles cross** on, a noodle may run straight over one that is already
 there, as long as it meets it at a right angle in a straight section and the cell
-behind is free. The one that came later passes over; the one underneath is cut open
-with a little air on each side, so the gap survives into the plot instead of being a
-trick of the screen.
+behind is free. That includes crossing its own body: one right, one up, one left, two
+down, and the noodle passes over itself.
+
+Every cell records whether the run through it was horizontal or vertical. The run
+along that recorded axis is the one underneath, so it gets cut open with a little air
+on each side, while the run going across it stays whole. The gap is real geometry and
+survives into the plot instead of being a trick of the screen.
 
 ## Graphics
 
