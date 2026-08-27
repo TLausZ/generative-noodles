@@ -169,6 +169,7 @@
   <div class="row"><label>Min length<span class="val" id="v_minLen"></span></label><input type="range" id="minLen" min="2" max="40" step="1" value="4"></div>
   <div class="row"><label>Max length<span class="val" id="v_maxLen"></span></label><input type="range" id="maxLen" min="2" max="40" step="1" value="14"></div>
   <div class="row"><label>Thickness<span class="val" id="v_thick"></span></label><input type="range" id="thick" min=".2" max=".95" step=".01" value=".62"></div>
+  <label class="check"><input type="checkbox" id="overlaps" checked> Let noodles cross</label>
   <h2>Graphics</h2>
   <div class="buttons">
     <button class="b" id="btnHead">Head</button>
@@ -225,7 +226,7 @@
   // One side of the noodle as a chain: a start point plus segments to follow.
   // A segment of type "M" is a jump, which is how end and joiner graphics cut
   // the outline open.
-  function sideChain(centers, dirs, sgn, s, w, ends, joiners) {
+  function sideChain(centers, dirs, sgn, s, w, ends, gaps) {
     var half = w / 2, i;
     // A graphic occupies a full noodle width, the built-in cap only half of it.
     var inHead = ends.head ? s / 2 - w : s / 2 - half;
@@ -243,11 +244,12 @@
       var pt = { x: mid.x + nl.x * sgn * half, y: mid.y + nl.y * sgn * half };
       var t = i > 0 ? turnOf(dirs[i - 1], d) : 0;
 
-      if (i > 0 && t === 0 && joiners.has(i)) {
-        segs.push({ t: "L", p: { x: centers[i].x - d.x * half + nl.x * sgn * half,
-                                 y: centers[i].y - d.y * half + nl.y * sgn * half } });
-        segs.push({ t: "M", p: { x: centers[i].x + d.x * half + nl.x * sgn * half,
-                                 y: centers[i].y + d.y * half + nl.y * sgn * half } });
+      if (i > 0 && t === 0 && gaps.has(i)) {
+        var g = gaps.get(i);
+        segs.push({ t: "L", p: { x: centers[i].x - d.x * g + nl.x * sgn * half,
+                                 y: centers[i].y - d.y * g + nl.y * sgn * half } });
+        segs.push({ t: "M", p: { x: centers[i].x + d.x * g + nl.x * sgn * half,
+                                 y: centers[i].y + d.y * g + nl.y * sgn * half } });
         segs.push({ t: "L", p: pt });
       } else if (i > 0 && t !== 0) {
         // Outside of the bend gets the long radius, inside the short one.
@@ -299,7 +301,7 @@
            fmt(penPx / sy) + '">' + g.inner + "</g>";
   }
 
-  function noodleParts(cells, gw, s, ox, oy, w, gfx, chance, seed, index, penPx) {
+  function noodleParts(cells, gw, s, ox, oy, w, gfx, chance, seed, index, penPx, crossAt) {
     var centers = cells.map(function (c) {
       return { x: ox + (c % gw + .5) * s, y: oy + (Math.floor(c / gw) + .5) * s };
     });
@@ -311,19 +313,29 @@
       });
     }
 
+    var half = w / 2;
+    var gaps = new Map();
+
+    // A noodle passing over this one leaves a gap wide enough to read as an
+    // underpass: its own width plus a little air on each side.
+    var crossGap = Math.min(half + 2 * penPx, s / 2);
+    if (crossAt) crossAt.forEach(function (i) { gaps.set(i, crossGap); });
+
     var joiner = gfx.joiner || (chance > 0 ? TWIST : null);
     var joiners = new Set();
     if (joiner && chance > 0) {
       var rnd = rngFrom(seed + 7919 * (index + 1));
       for (i = 1; i < dirs.length; i++) {
-        if (turnOf(dirs[i - 1], dirs[i]) === 0 && rnd() < chance) joiners.add(i);
+        if (turnOf(dirs[i - 1], dirs[i]) === 0 && !gaps.has(i) && rnd() < chance) {
+          joiners.add(i);
+          gaps.set(i, half);
+        }
       }
     }
 
     var ends = { head: gfx.head || null, tail: gfx.tail || gfx.head || null };
-    var L = sideChain(centers, dirs, 1, s, w, ends, joiners);
-    var R = sideChain(centers, dirs, -1, s, w, ends, joiners);
-    var half = w / 2;
+    var L = sideChain(centers, dirs, 1, s, w, ends, gaps);
+    var R = sideChain(centers, dirs, -1, s, w, ends, gaps);
 
     var ring = L.segs.slice();
     ring.push(ends.tail ? { t: "M", p: R.segs[R.segs.length - 1].p }
@@ -369,53 +381,94 @@
     };
   }
 
-  function grow(gw, gh, num, minLen, maxLen, seed, blocked) {
+  var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  // Cell state while growing: 0 free, 1 taken by a horizontal run, 2 by a
+  // vertical one, 3 taken but not crossable (corner, end, blocked), 4 already
+  // crossed. Only 1 and 2 can be crossed, and only at a right angle.
+  function grow(gw, gh, num, minLen, maxLen, seed, blocked, overlaps) {
     var rnd = rngFrom(seed);
-    var occ = new Uint8Array(gw * gh), order = [], i;
+    var axis = new Uint8Array(gw * gh), order = [], i;
     for (i = 0; i < gw * gh; i++) order.push(i);
     if (blocked) blocked.forEach(function (key) {
       var xy = key.split(","), x = +xy[0], y = +xy[1];
-      if (x < gw && y < gh) occ[y * gw + x] = 1;
+      if (x < gw && y < gh) axis[y * gw + x] = 3;
     });
     for (i = order.length - 1; i > 0; i--) {
       var j = Math.floor(rnd() * (i + 1)), t = order[i];
       order[i] = order[j]; order[j] = t;
     }
 
-    function freeNeighbours(c) {
+    var crossings = new Map();
+
+    // Where the walk can go from cell c: into a free neighbour, or straight
+    // across an occupied one when the cell behind it is free too.
+    function options(c) {
       var x = c % gw, y = Math.floor(c / gw), out = [];
-      if (x > 0 && !occ[c - 1]) out.push(c - 1);
-      if (x < gw - 1 && !occ[c + 1]) out.push(c + 1);
-      if (y > 0 && !occ[c - gw]) out.push(c - gw);
-      if (y < gh - 1 && !occ[c + gw]) out.push(c + gw);
+      for (var k = 0; k < DIRS.length; k++) {
+        var dx = DIRS[k][0], dy = DIRS[k][1];
+        var nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+        var n = ny * gw + nx;
+        if (axis[n] === 0) { out.push({ cells: [n], head: n }); continue; }
+        if (!overlaps) continue;
+        if (axis[n] !== (dx ? 2 : 1)) continue;
+        var bx = nx + dx, by = ny + dy;
+        if (bx < 0 || by < 0 || bx >= gw || by >= gh) continue;
+        var b = by * gw + bx;
+        if (axis[b] !== 0) continue;
+        out.push({ cells: [n, b], head: b, cross: n });
+      }
       return out;
+    }
+
+    // Once a noodle is done its straight cells become crossable.
+    function settle(cells) {
+      for (var i = 1; i < cells.length - 1; i++) {
+        var cell = cells[i];
+        if (axis[cell] === 4) continue;
+        var dxIn = cells[i] % gw - cells[i - 1] % gw;
+        var dxOut = cells[i + 1] % gw - cells[i] % gw;
+        var dyIn = Math.floor(cells[i] / gw) - Math.floor(cells[i - 1] / gw);
+        var dyOut = Math.floor(cells[i + 1] / gw) - Math.floor(cells[i] / gw);
+        if (dxIn === dxOut && dyIn === dyOut) axis[cell] = dxIn ? 1 : 2;
+      }
     }
 
     var noodles = [];
     for (var k = 0; k < order.length && noodles.length < num; k++) {
       var start = order[k];
-      if (occ[start]) continue;
-      occ[start] = 1;
+      if (axis[start]) continue;
+      axis[start] = 3;
       var target = minLen + Math.floor(rnd() * (maxLen - minLen + 1));
       var cells = [start], head = start, tail = start, atHead = true;
 
       while (cells.length < target) {
-        var n = freeNeighbours(atHead ? head : tail);
-        if (!n.length) {
+        var opts = options(atHead ? head : tail);
+        if (!opts.length) {
           if (!atHead) break;            // both ends tried
           atHead = false;
           continue;
         }
-        var next = n[Math.floor(rnd() * n.length)];
-        occ[next] = 1;
-        if (atHead) { cells.push(next); head = next; }
-        else { cells.unshift(next); tail = next; }
+        var pick = opts[Math.floor(rnd() * opts.length)];
+        pick.cells.forEach(function (cell) { axis[cell] = 3; });
+        if (pick.cross !== undefined) {
+          axis[pick.cross] = 4;
+          crossings.set(pick.cross, noodles.length);
+        }
+        if (atHead) {
+          pick.cells.forEach(function (cell) { cells.push(cell); });
+          head = pick.head;
+        } else {
+          pick.cells.forEach(function (cell) { cells.unshift(cell); });
+          tail = pick.head;
+        }
       }
 
-      if (cells.length > 1) noodles.push(cells);
-      else occ[start] = 0;               // a lone cell is no noodle
+      if (cells.length > 1) { settle(cells); noodles.push(cells); }
+      else axis[start] = 0;              // a lone cell is no noodle
     }
-    return noodles;
+    return { noodles: noodles, crossings: crossings };
   }
 
   // ---- drawing ------------------------------------------------------------
@@ -437,6 +490,7 @@
       minLen: Math.min(minLen, maxLen), maxLen: Math.max(minLen, maxLen),
       thick: +g("thick").value,
       joiners: +g("joiners").value, unit: unit,
+      overlaps: g("overlaps").checked,
       seed: +g("seed").value || 0
     };
   }
@@ -460,7 +514,9 @@
     var c = read(), L = layout(c);
     var W = L.W, H = L.H, s = L.s, ox = L.ox, oy = L.oy, w = L.w, penPx = L.penPx;
 
-    if (regrow || !current) current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen, c.seed, blocked);
+    if (regrow || !current) {
+      current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen, c.seed, blocked, c.overlaps);
+    }
 
     var parts = [];
     if (paintMode && blocked.size) {
@@ -481,8 +537,13 @@
       parts.push('<path id="grid" d="' + gl.join(" ") + '" stroke="#d9d9d9" stroke-width="1" fill="none"/>');
     }
     var d = [], uses = [];
-    current.forEach(function (cells, i) {
-      var r = noodleParts(cells, c.gw, s, ox, oy, w, gfx, c.joiners, c.seed, i, penPx);
+    current.noodles.forEach(function (cells, j) {
+      // Cells another noodle crosses here belong to the one that came later.
+      var crossAt = [];
+      for (var i = 1; i < cells.length - 1; i++) {
+        if (current.crossings.get(cells[i]) > j) crossAt.push(i);
+      }
+      var r = noodleParts(cells, c.gw, s, ox, oy, w, gfx, c.joiners, c.seed, j, penPx, crossAt);
       d.push(r.d);
       uses = uses.concat(r.uses);
     });
@@ -494,10 +555,11 @@
     svg.style.aspectRatio = W + " / " + H;
     svg.innerHTML = parts.join("\n");
 
-    var cellsUsed = current.reduce(function (a, n) { return a + n.length; }, 0);
-    var open = c.gw * c.gh - countBlocked(c.gw, c.gh);
+    var cellsUsed = current.noodles.reduce(function (a, n) { return a + n.length; }, 0);
+    var open = c.gw * c.gh - countBlocked(c.gw, c.gh) + current.crossings.size;
     document.getElementById("stats").textContent =
-      current.length + " noodles · " + cellsUsed + "/" + open + " cells · " +
+      current.noodles.length + " noodles · " + current.crossings.size + " crossings · " +
+      cellsUsed + "/" + open + " cells · " +
       fmt(s / DPI * 25.4) + " mm per cell · seed " + c.seed;
   }
 
@@ -702,6 +764,7 @@
     draw(true);
   }
   document.getElementById("seed").addEventListener("input", function () { draw(true); });
+  document.getElementById("overlaps").addEventListener("change", function () { draw(true); });
   document.getElementById("btnRandom").addEventListener("click", reseed);
   document.getElementById("btnGrid").addEventListener("click", function () { showGrid = !showGrid; draw(false); });
   document.getElementById("btnSave").addEventListener("click", save);
@@ -774,16 +837,16 @@
     eq(Math.max.apply(null, ys), 80, "bottom of the noodle");
 
     // Growing never puts two noodles in one cell.
-    var ns = grow(12, 12, 40, 3, 10, 42), seen = {};
+    var ns = grow(12, 12, 40, 3, 10, 42, null, false).noodles, seen = {};
     ns.forEach(function (n) { n.forEach(function (c) {
       if (seen[c]) throw new Error("cell " + c + " used twice");
       seen[c] = 1;
     }); });
     ok++;
     // Same seed, same noodles.
-    eq(JSON.stringify(grow(12, 12, 40, 3, 10, 42)) === JSON.stringify(ns) ? 1 : 0, 1,
+    eq(JSON.stringify(grow(12, 12, 40, 3, 10, 42, null, false).noodles) === JSON.stringify(ns) ? 1 : 0, 1,
        "the seed reproduces a run");
-    eq(JSON.stringify(grow(12, 12, 40, 3, 10, 43)) === JSON.stringify(ns) ? 0 : 1, 1,
+    eq(JSON.stringify(grow(12, 12, 40, 3, 10, 43, null, false).noodles) === JSON.stringify(ns) ? 0 : 1, 1,
        "a different seed gives a different run");
     // A joiner cuts the outline open and places one graphic.
     var withJoiner = noodleParts([0, 1, 2], 3, 100, 0, 0, 60, {}, 1, 1, 0, 1);
@@ -796,6 +859,34 @@
                              { head: { vb: [0, 0, 100, 100], inner: "<path d=\"M0,100\"/>" } }, 0, 1, 0, 1);
     eq(capped.uses.length, 2, "head graphic used at both ends");
     eq(capped.d.indexOf("Z"), -1, "an outline with end graphics is open");
+
+    // With crossings on, a crossed cell sits in exactly two noodles and both
+    // of them run straight through it.
+    var run = grow(20, 20, 60, 4, 14, 5, null, true);
+    if (!run.crossings.size) throw new Error("no crossings at all");
+    run.crossings.forEach(function (owner, cell) {
+      var users = run.noodles.filter(function (n) { return n.indexOf(cell) >= 0; });
+      if (users.length !== 2) throw new Error("crossed cell is in " + users.length + " noodles");
+      users.forEach(function (n) {
+        var i = n.indexOf(cell);
+        if (i === 0 || i === n.length - 1) throw new Error("a noodle ends on a crossing");
+        var straight = (n[i] - n[i - 1]) === (n[i + 1] - n[i]);
+        if (!straight) throw new Error("a noodle turns on a crossing");
+      });
+    });
+    ok++;
+
+    // The lower noodle of a crossing is cut open, the upper one is not.
+    var lower = run.noodles[0], cut = [];
+    for (var ci = 1; ci < lower.length - 1; ci++) {
+      if (run.crossings.get(lower[ci]) > 0) cut.push(ci);
+    }
+    if (cut.length) {
+      var over = noodleParts(lower, 20, 100, 0, 0, 60, {}, 0, 1, 0, 1, cut);
+      var plain = noodleParts(lower, 20, 100, 0, 0, 60, {}, 0, 1, 0, 1, []);
+      eq((over.d.match(/M/g) || []).length, 2 * cut.length, "each crossing cuts both sides");
+      eq(plain.d.indexOf("Z") >= 0 ? 1 : 0, 1, "without crossings it stays one closed path");
+    }
 
     // A click on the middle of cell 3,2 maps back to that cell.
     var L0 = layout(read());
@@ -815,7 +906,7 @@
     // Blocked cells stay empty.
     var wall = new Set();
     for (var bx = 0; bx < 12; bx++) wall.add(bx + ",5");
-    grow(12, 12, 40, 3, 10, 7, wall).forEach(function (n) {
+    grow(12, 12, 40, 3, 10, 7, wall, true).noodles.forEach(function (n) {
       n.forEach(function (cell) {
         if (Math.floor(cell / 12) === 5) throw new Error("noodle crossed a blocked row");
       });

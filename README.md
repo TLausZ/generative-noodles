@@ -37,6 +37,14 @@ reapplied by itself. Painting by hand from then on drops the mask.
 
 Blocked cells and the grid are drawing aids and never end up in the saved SVG.
 
+## Crossings
+
+With **Let noodles cross** on, a noodle may run straight over one that is already
+there, as long as it meets it at a right angle in a straight section and the cell
+behind is free. The one that came later passes over; the one underneath is cut open
+with a little air on each side, so the gap survives into the plot instead of being a
+trick of the screen.
+
 ## Graphics
 
 Ends and straight sections can carry your own SVG shapes. Load them in the Graphics
@@ -55,8 +63,10 @@ Where a graphic sits, the outline is cut open and the shape carries the line acr
 ## How it works
 
 Noodles are self-avoiding walks over a grid: pick a free cell, grow into a random free
-neighbour, and when the head gets stuck, keep growing from the tail instead. The random
-numbers come from a seeded generator, which is what makes a drawing reproducible.
+neighbour, and when the head gets stuck, keep growing from the tail instead. Each cell
+remembers whether the run through it was horizontal or vertical, which is what makes a
+crossing decidable at growing time. The random numbers come from a seeded generator,
+which is what makes a drawing reproducible.
 
 The grid keeps every turn at 90 degrees, so the outline needs no offset curve maths.
 A straight cell is two parallel lines, a corner is two concentric quarter arcs whose
@@ -69,7 +79,7 @@ page title.
 
 ## Not built yet
 
-Overlapping noodles and the path edit mode from the original.
+The path edit mode from the original.
 
 ## License
 
