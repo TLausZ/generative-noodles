@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Finger tip after the diagram in the original sketch: the cap, a nail
+       inside it and one crease below. Noodle edges run down x=0 and x=100 and
+       meet the bottom edge. -->
+  <path d="M0,100 V48 C0,14 100,14 100,48 V100" fill="none" stroke="#000" stroke-width="1"/>
+  <path d="M12,80 V46 C12,18 88,18 88,46 V80 C70,86 30,86 12,80 Z" fill="none" stroke="#000" stroke-width="1"/>
+  <path d="M26,92 C44,89 62,89 78,91" fill="none" stroke="#000" stroke-width="1"/>
+</svg>

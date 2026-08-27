@@ -110,7 +110,7 @@
     border: 1px solid var(--border-strong); border-radius: 4px;
   }
   .previews {
-    display: flex; gap: var(--control);
+    display: flex; gap: var(--control); align-items: flex-end;
     margin: 0 0 var(--panel-pad);
   }
   .preview { flex: 1; text-align: center; font-size: 11px; color: var(--ink-faint); }
@@ -746,15 +746,28 @@
            '<g fill="none" stroke="currentColor" stroke-width="' + sw + '">' + g.inner + "</g></svg>";
   }
 
+  function showPreview(id, g, bothEnds) {
+    var host = document.getElementById(id);
+    host.innerHTML = previewMarkup(g, bothEnds);
+    // A shape may reach past its box, so fit the tile to what is actually
+    // drawn instead of to the nominal 100 x 100.
+    var svg = host.firstChild, box;
+    try { box = svg.getBBox(); } catch (e) { return; }
+    if (!box || !box.width) return;
+    var m = g.vb[2] * .05;
+    svg.setAttribute("viewBox", [box.x - m, box.y - m, box.width + 2 * m, box.height + 2 * m].join(" "));
+  }
+
   function drawPreviews() {
-    document.getElementById("pvHead").innerHTML = previewMarkup(gfx.head || CAP, false);
-    document.getElementById("pvTail").innerHTML = previewMarkup(gfx.tail || gfx.head || CAP, false);
-    document.getElementById("pvJoiner").innerHTML = previewMarkup(gfx.joiner || TWIST, true);
+    showPreview("pvHead", gfx.head || CAP, false);
+    showPreview("pvTail", gfx.tail || gfx.head || CAP, false);
+    showPreview("pvJoiner", gfx.joiner || TWIST, true);
   }
 
   document.getElementById("gfxFile").addEventListener("change", function (ev) {
     var file = ev.target.files[0];
     if (!file) return;
+    var slot = pendingSlot;          // hold it, reading is asynchronous
     var reader = new FileReader();
     reader.onload = function () {
       var doc = new DOMParser().parseFromString(reader.result, "image/svg+xml");
@@ -770,9 +783,9 @@
                             parseFloat(root.getAttribute("height")) || 100];
       var ser = new XMLSerializer(), inner = "";
       Array.prototype.forEach.call(root.childNodes, function (n) { inner += ser.serializeToString(n); });
-      gfx[pendingSlot] = { vb: vb, inner: inner };
+      gfx[slot] = { vb: vb, inner: inner };
       drawPreviews();
-      if (pendingSlot === "joiner" && +document.getElementById("joiners").value === 0) {
+      if (slot === "joiner" && +document.getElementById("joiners").value === 0) {
         document.getElementById("joiners").value = .35;
         document.getElementById("v_joiners").textContent = ".35";
       }
