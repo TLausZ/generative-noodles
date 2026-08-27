@@ -17,9 +17,12 @@ Open `index.html` in a browser, or use the hosted version.
 **`I`** load a mask image · **`S`** save an SVG · **`H`** toggle the panel
 
 Every drawing comes from a seed. Type a seed back into the panel and the same noodles
-return, so a plot you liked is never lost. The saved SVG carries its real paper size in
-inches, so a plotter or a print dialog picks up the right dimensions without scaling,
-and all settings ride along in a comment at the top of the file.
+return, so a plot you liked is never lost.
+
+Paper is measured in centimetres, and the button next to the Paper heading switches to
+inches without changing the sheet. The saved SVG carries that real size, so a plotter
+or a print dialog picks up the right dimensions without scaling, and all settings ride
+along in a comment at the top of the file.
 
 ## Blocking cells
 

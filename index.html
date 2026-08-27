@@ -94,6 +94,12 @@
     color: var(--ui-text); background: rgba(255,255,255,.06);
     border: 1px solid var(--ui-border); border-radius: 8px;
   }
+  h2 .unit {
+    float: right; margin-top: -2px; padding: 2px 8px; font: inherit; font-size: 10px;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ui-accent); background: rgba(255,210,160,.10);
+    border: 1px solid var(--ui-border); border-radius: 6px; cursor: pointer;
+  }
   .pair { display: flex; gap: 8px; }
   .pair .row { flex: 1; }
 
@@ -146,12 +152,12 @@
     <button class="b" id="btnSave">Save SVG</button>
   </div>
 
-  <h2>Paper</h2>
+  <h2>Paper <button class="unit" id="btnUnit">cm</button></h2>
   <div class="pair">
-    <div class="row"><label>Width in<span class="val"></span></label><input type="number" id="pw" value="11" min="1" max="60" step=".5"></div>
-    <div class="row"><label>Height in<span class="val"></span></label><input type="number" id="ph" value="8.5" min="1" max="60" step=".5"></div>
+    <div class="row"><label>Width<span class="val"></span></label><input type="number" id="pw" value="29.7" min="1" max="200" step=".1"></div>
+    <div class="row"><label>Height<span class="val"></span></label><input type="number" id="ph" value="21" min="1" max="200" step=".1"></div>
   </div>
-  <div class="row"><label>Margin<span class="val" id="v_margin"></span></label><input type="range" id="margin" min="0" max="2" step=".1" value=".5"></div>
+  <div class="row"><label>Margin<span class="val" id="v_margin"></span></label><input type="range" id="margin" min="0" max="5" step=".1" value="1.5"></div>
   <div class="row"><label>Pen size<span class="val" id="v_pen"></span></label><input type="range" id="pen" min=".1" max="2" step=".05" value=".5"></div>
 
   <h2>Grid</h2>
@@ -194,6 +200,11 @@
   "use strict";
 
   var DPI = 96;
+  var UNITS = {
+    cm: { px: DPI / 2.54, paper: { min: 1, max: 200, step: .1 }, margin: { max: 5, step: .1 } },
+    in: { px: DPI, paper: { min: .5, max: 60, step: .5 }, margin: { max: 2, step: .1 } }
+  };
+  var unit = "cm";
   var svg = document.getElementById("art");
 
   // ---- geometry -----------------------------------------------------------
@@ -425,20 +436,29 @@
       num: +g("num").value,
       minLen: Math.min(minLen, maxLen), maxLen: Math.max(minLen, maxLen),
       thick: +g("thick").value,
-      joiners: +g("joiners").value,
+      joiners: +g("joiners").value, unit: unit,
       seed: +g("seed").value || 0
     };
   }
 
   var current = null;
 
-  function draw(regrow) {
-    var c = read();
-    var W = c.pw * DPI, H = c.ph * DPI, m = c.margin * DPI;
+  // Everything on screen is in SVG user units: 96 per inch, whatever the panel
+  // is set to.
+  function layout(c) {
+    var px = UNITS[c.unit].px;
+    var W = c.pw * px, H = c.ph * px, m = c.margin * px;
     var s = Math.min((W - 2 * m) / c.gw, (H - 2 * m) / c.gh);
-    var ox = (W - s * c.gw) / 2, oy = (H - s * c.gh) / 2;
-    var w = s * c.thick;
-    var penPx = c.pen / 25.4 * DPI;
+    return {
+      W: W, H: H, s: s,
+      ox: (W - s * c.gw) / 2, oy: (H - s * c.gh) / 2,
+      w: s * c.thick, penPx: c.pen / 25.4 * DPI
+    };
+  }
+
+  function draw(regrow) {
+    var c = read(), L = layout(c);
+    var W = L.W, H = L.H, s = L.s, ox = L.ox, oy = L.oy, w = L.w, penPx = L.penPx;
 
     if (regrow || !current) current = grow(c.gw, c.gh, c.num, c.minLen, c.maxLen, c.seed, blocked);
 
@@ -493,14 +513,11 @@
   // ---- painting blocked cells ---------------------------------------------
 
   function cellAt(ev) {
-    var c = read();
-    var W = c.pw * DPI, H = c.ph * DPI, m = c.margin * DPI;
-    var s = Math.min((W - 2 * m) / c.gw, (H - 2 * m) / c.gh);
-    var ox = (W - s * c.gw) / 2, oy = (H - s * c.gh) / 2;
+    var c = read(), L = layout(c);
     var box = svg.getBoundingClientRect();
-    var px = (ev.clientX - box.left) / box.width * W;
-    var py = (ev.clientY - box.top) / box.height * H;
-    var x = Math.floor((px - ox) / s), y = Math.floor((py - oy) / s);
+    var px = (ev.clientX - box.left) / box.width * L.W;
+    var py = (ev.clientY - box.top) / box.height * L.H;
+    var x = Math.floor((px - L.ox) / L.s), y = Math.floor((py - L.oy) / L.s);
     if (x < 0 || y < 0 || x >= c.gw || y >= c.gh) return null;
     return x + "," + y;
   }
@@ -631,6 +648,25 @@
       document.getElementById("gfxFile").click();
     });
   });
+  // Switching units keeps the sheet the same size, only the numbers change.
+  document.getElementById("btnUnit").addEventListener("click", function () {
+    var to = unit === "cm" ? "in" : "cm";
+    var factor = UNITS[unit].px / UNITS[to].px;
+    var cfg = UNITS[to];
+    ["pw", "ph"].forEach(function (id) {
+      var el = document.getElementById(id);
+      el.min = cfg.paper.min; el.max = cfg.paper.max; el.step = cfg.paper.step;
+      el.value = Math.round(+el.value * factor * 10) / 10;
+    });
+    var mar = document.getElementById("margin");
+    mar.max = cfg.margin.max; mar.step = cfg.margin.step;
+    mar.value = Math.round(+mar.value * factor * 10) / 10;
+    document.getElementById("v_margin").textContent = mar.value;
+    unit = to;
+    this.textContent = to;
+    draw(false);
+  });
+
   document.getElementById("btnGfxReset").addEventListener("click", function () {
     gfx = {};
     draw(false);
@@ -685,8 +721,8 @@
       if (g) g.remove();
     });
     clone.removeAttribute("style");
-    clone.setAttribute("width", c.pw + "in");
-    clone.setAttribute("height", c.ph + "in");
+    clone.setAttribute("width", c.pw + c.unit);
+    clone.setAttribute("height", c.ph + c.unit);
     // The settings ride along in a comment, so any plot can be regenerated.
     var head = '<?xml version="1.0" encoding="UTF-8"?>\n<!-- generative-noodles ' +
                JSON.stringify(c) + ' -->\n';
@@ -762,16 +798,19 @@
     eq(capped.d.indexOf("Z"), -1, "an outline with end graphics is open");
 
     // A click on the middle of cell 3,2 maps back to that cell.
-    var c0 = read();
-    var W0 = c0.pw * DPI, H0 = c0.ph * DPI, m0 = c0.margin * DPI;
-    var s0 = Math.min((W0 - 2 * m0) / c0.gw, (H0 - 2 * m0) / c0.gh);
-    var ox0 = (W0 - s0 * c0.gw) / 2, oy0 = (H0 - s0 * c0.gh) / 2;
+    var L0 = layout(read());
     var box = svg.getBoundingClientRect();
     var hit = cellAt({
-      clientX: box.left + (ox0 + 3.5 * s0) / W0 * box.width,
-      clientY: box.top + (oy0 + 2.5 * s0) / H0 * box.height
+      clientX: box.left + (L0.ox + 3.5 * L0.s) / L0.W * box.width,
+      clientY: box.top + (L0.oy + 2.5 * L0.s) / L0.H * box.height
     });
     eq(hit === "3,2" ? 1 : 0, 1, "a screen click maps back to its cell, got " + hit);
+
+    // 25.4 cm and 10 in are the same sheet, to the user unit.
+    var inches = layout({ pw: 10, ph: 8, margin: 1, gw: 10, gh: 10, thick: .5, pen: .5, unit: "in" });
+    var metric = layout({ pw: 25.4, ph: 20.32, margin: 2.54, gw: 10, gh: 10, thick: .5, pen: .5, unit: "cm" });
+    eq(inches.W, metric.W, "same sheet width in either unit");
+    eq(inches.s, metric.s, "same cell size in either unit");
 
     // Blocked cells stay empty.
     var wall = new Set();
